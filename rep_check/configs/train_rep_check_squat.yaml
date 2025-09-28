@@ -1,0 +1,20 @@
+model:
+  _target_: rep_check.models.gcn.STGCN
+  in_channels: 4
+  num_classes: 2
+  graph:
+    _target_: rep_check.utils.graph.MediaPipeGraph
+    num_node: 23
+    max_hop: 1
+    dilation: 1
+    strategy: spatial
+  edge_weights: true
+  dropout: 0.5
+
+train:
+  seed: 42
+  device: cuda
+  batch_size: 16
+  num_epochs: 50
+  lr: 0.001
+  weight_decay: 0.0001
