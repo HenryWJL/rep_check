@@ -1,3 +1,11 @@
+_target_: rep_check.utils.trainer.Trainer
+
+seed: 42
+device: mps
+batch_size: 64
+num_epochs: 10
+num_workers: 4
+
 model:
   _target_: rep_check.models.gcn.STGCN
   in_channels: 4
@@ -11,10 +19,28 @@ model:
   edge_weights: true
   dropout: 0.5
 
-train:
-  seed: 42
-  device: cuda
-  batch_size: 16
-  num_epochs: 50
-  lr: 0.001
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 0.1
   weight_decay: 0.0001
+
+train_dataloader:
+  _target_: torch.utils.data.DataLoader
+  dataset:
+    _target_: rep_check.utils.dataset.PoseLandmarkDataset
+    zarr_path: data/train_data.zarr
+  batch_size: ${batch_size}
+  shuffle: true
+  pin_memory: true
+  num_workers: ${num_workers}
+
+val_dataloader: null
+# val_dataloader:
+#   _target_: torch.utils.data.Dataloader
+#   dataset:
+#     _target_: rep_check.utils.dataset.PoseLandmarkDataset
+#     zarr_path: data/val_data.zarr
+#   batch_size: ${batch_size}
+#   shuffle: false
+#   pin_memory: true
+#   num_workers: ${num_workers}
