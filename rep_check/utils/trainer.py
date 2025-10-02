@@ -6,6 +6,7 @@ import numpy as np
 from tqdm import tqdm
 from omegaconf import OmegaConf
 from rep_check.utils.logger import create_logger
+from rep_check.utils.visualizer import plot_curves
 
 
 class Trainer:
@@ -77,4 +78,7 @@ class Trainer:
             self.logger.info(message)
         # Save models
         torch.save(self.model.state_dict(), "checkpoints/rep_check_squat.pth")
-        # Plot loss curve
+        # Plot loss and accuracy curves
+        plot_curves(train_loss, train_acc)
+        if val_loss and val_acc:
+            plot_curves(val_loss, val_acc, train=False)
