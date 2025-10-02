@@ -1,3 +1,4 @@
+import os
 import hydra
 import random
 import torch
@@ -18,6 +19,7 @@ class Trainer:
         self.logger = create_logger()
         self.device = torch.device(cfg.device)
         self.num_epochs = cfg.num_epochs
+        self.val_freq = cfg.val_freq
         self.model = hydra.utils.instantiate(cfg.model)
         self.model.to(self.device)
         self.optimizer = hydra.utils.instantiate(
@@ -29,12 +31,14 @@ class Trainer:
             else hydra.utils.instantiate(cfg.val_dataloader)
 
     def run(self) -> None:
+        ckpt_dir = os.path.join(os.getcwd(), "checkpoints")
+        os.makedirs(ckpt_dir, exist_ok=True)
         train_loss = []
         val_loss = []
         train_acc = []
         val_acc = []
-        for epoch in tqdm(range(self.num_epochs), desc="Model Training"):
-            message = f"Epoch [{epoch+1}/{self.num_epochs}]\n"
+        for epoch in tqdm(range(1, self.num_epochs + 1), desc="Model Training"):
+            message = f"Epoch [{epoch}/{self.num_epochs}]\n"
             self.model.train()
             total_loss, correct, total = 0.0, 0.0, 0.0
             for (poses, labels) in self.train_dataloader:
@@ -56,7 +60,7 @@ class Trainer:
             train_acc.append(accuracy)
             message += f"Train Loss: {avg_loss} | Train Accuracy: {accuracy}\n"
             
-            if self.val_dataloader is not None:
+            if self.val_dataloader is not None and epoch % self.val_freq == 0:
                 self.model.eval()
                 total_loss, correct, total = 0.0, 0.0, 0.0
                 with torch.no_grad():
@@ -74,11 +78,13 @@ class Trainer:
                 val_loss.append(avg_loss)
                 val_acc.append(accuracy)
                 message += f"Validation Loss: {avg_loss} | Validation Accuracy: {accuracy}\n"
-
+                # Save checkpoints
+                ckpt_path = os.path.join(ckpt_dir, f"epoch={epoch}-val_acc={accuracy}.pth")
+                torch.save(self.model.state_dict(), ckpt_path)
+            # Logging
             self.logger.info(message)
-        # Save models
-        torch.save(self.model.state_dict(), "checkpoints/rep_check_squat.pth")
+        
         # Plot loss and accuracy curves
-        plot_curves(train_loss, train_acc)
+        plot_curves(self.num_epochs, train_loss, train_acc)
         if val_loss and val_acc:
-            plot_curves(val_loss, val_acc, train=False)
+            plot_curves(self.num_epochs, val_loss, val_acc, train=False)
