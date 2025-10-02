@@ -120,6 +120,10 @@ for folder in DATA_FOLDERS:
 
             if frames_list:
                 video_array = np.concatenate(frames_list, axis=1)
+                # if video_array.shape[-2] > 200:
+                #     print(video_array.shape[-2])
+                #     print(file_path)
+                #     print("------------------------------------")
                 all_samples.append(video_array[np.newaxis, ...])
                 all_labels.append(label)
 
