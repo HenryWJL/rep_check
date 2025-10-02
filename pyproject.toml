@@ -11,6 +11,7 @@ dependencies = [
   "zarr==2.17.0",
   "numpy==1.26.4",
   "opencv-python==4.10.0.84",
+  "matplotlib==3.10.6",
   "torch==2.2.0",
   "torchvision==0.17.0",
   "mediapipe==0.10.21",
