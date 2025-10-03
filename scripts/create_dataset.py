@@ -1,8 +1,9 @@
+import os
 import cv2
 import mediapipe as mp
 import numpy as np
-import os
 import zarr
+
 
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
@@ -12,15 +13,15 @@ IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp'}
 VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.mkv'}
 
 # Folders containing videos/images
-DATA_FOLDERS = ['correct_squats', 'incorrect_squats']
+DATA_FOLDERS = ['correct', 'incorrect']
 
 # Map folder name to label
 LABEL_MAP = {
-    'correct_squats': 1,
-    'incorrect_squats': 0
+    'correct': 1,
+    'incorrect': 0
 }
 # Train or test
-SPLIT = "test"
+SPLIT = "train"
 
 annotated_saved = False
 all_samples = []
@@ -121,10 +122,6 @@ for folder in DATA_FOLDERS:
 
             if frames_list:
                 video_array = np.concatenate(frames_list, axis=1)
-                # if video_array.shape[-2] > 200:
-                #     print(video_array.shape[-2])
-                #     print(file_path)
-                #     print("------------------------------------")
                 all_samples.append(video_array[np.newaxis, ...])
                 all_labels.append(label)
 
@@ -149,6 +146,6 @@ landmarks = np.concatenate(padded_samples, axis=0)
 labels = np.array(all_labels)
 print(f"There are {landmarks.shape[0]} samples")
 print(f"The maximum length is {landmarks.shape[2]}")
-with zarr.open(f'data/{SPLIT}_data.zarr', mode='w') as f:
-    f['landmark'] = landmarks
-    f['label'] = labels
+# with zarr.open(f'data/{SPLIT}_data.zarr', mode='w') as f:
+#     f['landmark'] = landmarks
+#     f['label'] = labels
