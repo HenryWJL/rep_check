@@ -6,6 +6,7 @@ import torch.nn as nn
 import numpy as np
 from tqdm import tqdm
 from omegaconf import OmegaConf
+from hydra.core.hydra_config import HydraConfig
 from rep_check.utils.logger import create_logger
 from rep_check.utils.visualizer import plot_curves
 
@@ -31,7 +32,8 @@ class Trainer:
             else hydra.utils.instantiate(cfg.val_dataloader)
 
     def run(self) -> None:
-        ckpt_dir = os.path.join(os.getcwd(), "checkpoints")
+        run_dir = HydraConfig.get().runtime.output_dir
+        ckpt_dir = os.path.join(run_dir, "checkpoints")
         os.makedirs(ckpt_dir, exist_ok=True)
         train_loss = []
         val_loss = []
@@ -83,7 +85,7 @@ class Trainer:
                 torch.save(self.model.state_dict(), ckpt_path)
             # Logging
             self.logger.info(message)
-        
+        torch.save(self.model.state_dict(), f"{ckpt_dir}/rep_check_squat.pth")
         # Plot loss and accuracy curves
         plot_curves(self.num_epochs, train_loss, train_acc)
         if val_loss and val_acc:

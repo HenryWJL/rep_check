@@ -27,7 +27,7 @@ all_labels = []
 
 for folder in DATA_FOLDERS:
     label = LABEL_MAP[folder]
-    folder_path = os.path.join(os.getcwd(), "data", folder)
+    folder_path = os.path.join(os.getcwd(), "data/train", folder)
     
     for file in os.listdir(folder_path):
         ext = os.path.splitext(file)[1].lower()
