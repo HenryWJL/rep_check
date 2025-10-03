@@ -25,6 +25,11 @@ optimizer:
   lr: 0.01
   weight_decay: 0.0001
 
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.MultiStepLR
+  milestones: [10, 50]
+  gamma: 0.1
+
 train_dataloader:
   _target_: torch.utils.data.DataLoader
   dataset:

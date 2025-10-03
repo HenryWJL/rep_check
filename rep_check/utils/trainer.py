@@ -23,10 +23,13 @@ class Trainer:
         self.val_freq = cfg.val_freq
         self.model = hydra.utils.instantiate(cfg.model)
         self.model.to(self.device)
+        self.criterion = nn.CrossEntropyLoss()
         self.optimizer = hydra.utils.instantiate(
             cfg.optimizer, params=self.model.parameters()
         )
-        self.criterion = nn.CrossEntropyLoss()
+        self.lr_scheduler = hydra.utils.instantiate(
+            cfg.lr_scheduler, optimizer=self.optimizer
+        )
         self.train_dataloader = hydra.utils.instantiate(cfg.train_dataloader)
         self.val_dataloader = None if cfg.val_dataloader is None \
             else hydra.utils.instantiate(cfg.val_dataloader)
@@ -56,6 +59,7 @@ class Trainer:
                 correct += pred_labels.eq(labels).sum().item()
                 total += poses.size(0)
 
+            self.lr_scheduler.step()
             avg_loss = total_loss / total
             accuracy = 100.0 * correct / total
             train_loss.append(avg_loss)
