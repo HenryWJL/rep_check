@@ -35,13 +35,12 @@ train_dataloader:
   pin_memory: true
   num_workers: ${num_workers}
 
-val_dataloader: null
-# val_dataloader:
-#   _target_: torch.utils.data.Dataloader
-#   dataset:
-#     _target_: rep_check.utils.dataset.PoseLandmarkDataset
-#     zarr_path: data/val_data.zarr
-#   batch_size: ${batch_size}
-#   shuffle: false
-#   pin_memory: true
-#   num_workers: ${num_workers}
+val_dataloader:
+  _target_: torch.utils.data.Dataloader
+  dataset:
+    _target_: rep_check.utils.dataset.PoseLandmarkDataset
+    zarr_path: data/test_data.zarr
+  batch_size: ${batch_size}
+  shuffle: false
+  pin_memory: true
+  num_workers: ${num_workers}
