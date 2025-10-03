@@ -36,7 +36,7 @@ train_dataloader:
   num_workers: ${num_workers}
 
 val_dataloader:
-  _target_: torch.utils.data.Dataloader
+  _target_: torch.utils.data.DataLoader
   dataset:
     _target_: rep_check.utils.dataset.PoseLandmarkDataset
     zarr_path: data/test_data.zarr
