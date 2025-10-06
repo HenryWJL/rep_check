@@ -25,6 +25,7 @@ def plot_curves(
     plt.grid(True, linestyle="--", alpha=0.6)
 
     plt.tight_layout()
-    plt.show()
     if filename is not None:
         plt.savefig(filename, bbox_inches='tight', pad_inches=0.0, dpi=300)
+    plt.show()
+    
