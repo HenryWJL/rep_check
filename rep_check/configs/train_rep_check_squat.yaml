@@ -2,7 +2,7 @@ _target_: rep_check.utils.trainer.Trainer
 
 seed: 42
 device: mps
-batch_size: 128
+batch_size: 64
 num_epochs: 80
 val_freq: 5
 num_workers: 4
@@ -22,12 +22,12 @@ model:
 
 optimizer:
   _target_: torch.optim.Adam
-  lr: 0.1
+  lr: 0.01
   weight_decay: 0.0001
 
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.MultiStepLR
-  milestones: [10, 50]
+  milestones: [10]
   gamma: 0.1
 
 train_dataloader:
