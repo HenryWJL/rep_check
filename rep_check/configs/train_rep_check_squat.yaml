@@ -2,8 +2,8 @@ _target_: rep_check.utils.trainer.Trainer
 
 seed: 42
 device: mps
-batch_size: 64
-num_epochs: 50
+batch_size: 128
+num_epochs: 80
 val_freq: 5
 num_workers: 4
 
@@ -22,7 +22,7 @@ model:
 
 optimizer:
   _target_: torch.optim.Adam
-  lr: 0.01
+  lr: 0.1
   weight_decay: 0.0001
 
 lr_scheduler:
@@ -34,7 +34,7 @@ train_dataloader:
   _target_: torch.utils.data.DataLoader
   dataset:
     _target_: rep_check.utils.dataset.PoseLandmarkDataset
-    zarr_path: data/train_data.zarr
+    zarr_path: data/processed/train.zarr
   batch_size: ${batch_size}
   shuffle: true
   pin_memory: true
@@ -44,7 +44,7 @@ val_dataloader:
   _target_: torch.utils.data.DataLoader
   dataset:
     _target_: rep_check.utils.dataset.PoseLandmarkDataset
-    zarr_path: data/test_data.zarr
+    zarr_path: data/processed/test/level1.zarr
   batch_size: ${batch_size}
   shuffle: false
   pin_memory: true
