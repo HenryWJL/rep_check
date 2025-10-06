@@ -37,7 +37,9 @@ class Trainer:
     def run(self) -> None:
         run_dir = HydraConfig.get().runtime.output_dir
         ckpt_dir = os.path.join(run_dir, "checkpoints")
+        plot_dir = os.path.join(run_dir, "plots")
         os.makedirs(ckpt_dir, exist_ok=True)
+        os.makedirs(plot_dir, exist_ok=True)
         train_loss = []
         val_loss = []
         train_acc = []
@@ -91,6 +93,6 @@ class Trainer:
             self.logger.info(message)
         torch.save(self.model.state_dict(), f"{ckpt_dir}/rep_check_squat.pth")
         # Plot loss and accuracy curves
-        plot_curves(self.num_epochs, train_loss, train_acc)
+        plot_curves(self.num_epochs, train_loss, train_acc, f"{plot_dir}/train_curves.png")
         if val_loss and val_acc:
-            plot_curves(self.num_epochs, val_loss, val_acc, train=False)
+            plot_curves(self.num_epochs, val_loss, val_acc, f"{plot_dir}/val_curves.png")
