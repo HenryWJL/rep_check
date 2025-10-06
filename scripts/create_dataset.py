@@ -56,15 +56,20 @@ for folder in DATA_FOLDERS:
                 # Pelvis as center
                 left_hip = results.pose_landmarks.landmark[23]
                 right_hip = results.pose_landmarks.landmark[24]
-                pelvis = [
+                pelvis = np.array([
                     (left_hip.x + right_hip.x) / 2,
                     (left_hip.y + right_hip.y) / 2,
                     (left_hip.z + right_hip.z) / 2,
                     0.0
-                ]
-                frame_array.append(pelvis)
+                ], dtype=float)
+                frame_array = np.array(frame_array, dtype=float)
 
-                frame_array = np.array(frame_array).T
+                # Center coords by subtracting by pelvis coords and set pevlis xyz coords to [0, 0, 0]
+                frame_array[:, :3] -= pelvis[:3]
+                pelvis_zero = np.array([0.0, 0.0, 0.0, 0.0], dtype=float)
+                frame_array = np.vstack([frame_array, pelvis_zero])
+
+                frame_array = frame_array.T
                 all_samples.append(frame_array[np.newaxis, :, np.newaxis, :])
                 all_labels.append(label)
 
@@ -107,15 +112,20 @@ for folder in DATA_FOLDERS:
                     # Pelvis as center
                     left_hip = results.pose_landmarks.landmark[23]
                     right_hip = results.pose_landmarks.landmark[24]
-                    pelvis = [
+                    pelvis = np.array([
                         (left_hip.x + right_hip.x) / 2,
                         (left_hip.y + right_hip.y) / 2,
                         (left_hip.z + right_hip.z) / 2,
                         0.0
-                    ]
-                    frame_array.append(pelvis)
+                    ], dtype=float)
+                    frame_array = np.array(frame_array, dtype=float)
 
-                    frame_array = np.array(frame_array).T[:, np.newaxis, :]
+                    # Center coords by subtracting by pelvis coords and set pevlis xyz coords to [0, 0, 0]
+                    frame_array[:, :3] -= pelvis[:3]
+                    pelvis_zero = np.array([0.0, 0.0, 0.0, 0.0], dtype=float)
+                    frame_array = np.vstack([frame_array, pelvis_zero])
+
+                    frame_array = frame_array.T[:, np.newaxis, :]
                     frames_list.append(frame_array)
 
             cap.release()
@@ -125,27 +135,42 @@ for folder in DATA_FOLDERS:
                 all_samples.append(video_array[np.newaxis, ...])
                 all_labels.append(label)
 
-# Pad each sample to have same number of frames
-max_frames = max(sample.shape[2] for sample in all_samples)
-padded_samples = []
+# Set  all data frames to 200
+TARGET_FRAMES = 200
+processed_samples = []
+
 for sample in all_samples:
     f = sample.shape[2]
-    if f < max_frames:
-        pad_width = ((0, 0), (0, 0), (0, max_frames - f), (0, 0))
-        sample = np.pad(sample, pad_width, mode='constant', constant_values=0)
-    padded_samples.append(sample)
 
+    if f < TARGET_FRAMES:
+        # Zero pad
+        pad_width = ((0, 0), (0, 0), (0, TARGET_FRAMES - f), (0, 0))
+        sample = np.pad(sample, pad_width, mode='constant', constant_values=0)
+
+    elif f > TARGET_FRAMES:
+        # Resample down to 200 frames
+        old_indices = np.linspace(0, f - 1, f)
+        new_indices = np.linspace(0, f - 1, TARGET_FRAMES)
+
+        # Resample along the frame dimension
+        num_dims = sample.shape[0] * sample.shape[1] * sample.shape[3]
+        reshaped = sample.reshape(num_dims, f)  # flatten everything except frames
+        resampled = np.array([np.interp(new_indices, old_indices, row) for row in reshaped])
+        sample = resampled.reshape(sample.shape[0], sample.shape[1], TARGET_FRAMES, sample.shape[3])
+
+    processed_samples.append(sample)
 
 # # Save to .npy files
-# np.save('landmarks.npy', np.concatenate(padded_samples, axis=0))
+# np.save('landmarks.npy', np.concatenate(processed_samples, axis=0))
 # np.save('labels.npy', np.array(all_labels))
 # print("Preprocessing complete. Saved landmarks.npy and labels.npy")
 
 # Save to zarr file
-landmarks = np.concatenate(padded_samples, axis=0)
+landmarks = np.concatenate(processed_samples, axis=0)
 labels = np.array(all_labels)
 print(f"There are {landmarks.shape[0]} samples")
 print(f"The maximum length is {landmarks.shape[2]}")
 # with zarr.open(f'data/{SPLIT}_data.zarr', mode='w') as f:
 #     f['landmark'] = landmarks
+
 #     f['label'] = labels
