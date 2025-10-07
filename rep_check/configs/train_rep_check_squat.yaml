@@ -35,6 +35,7 @@ train_dataloader:
   dataset:
     _target_: rep_check.utils.dataset.PoseLandmarkDataset
     zarr_path: data/processed/train.zarr
+    normalizer: null
   batch_size: ${batch_size}
   shuffle: true
   pin_memory: true
@@ -45,6 +46,7 @@ val_dataloader:
   dataset:
     _target_: rep_check.utils.dataset.PoseLandmarkDataset
     zarr_path: data/processed/test/level1.zarr
+    normalizer: null
   batch_size: ${batch_size}
   shuffle: false
   pin_memory: true
