@@ -36,8 +36,7 @@ class Normalizer:
             if isinstance(data, Array):
                 data = data[:]
             if isinstance(data, ndarray):
-                data = torch.from_numpy(data)
-            assert len(data.shape) == 2
+                data = torch.from_numpy(data).float()
             assert mode in ['max_min', 'mean_std']
             if mode == 'max_min':
                 eps = 1e-8
@@ -88,7 +87,7 @@ class Normalizer:
             if isinstance(input, Array):
                 input = input[:]
             if isinstance(input, ndarray):
-                input = torch.from_numpy(input)
+                input = torch.from_numpy(input).float()
             if norm_stats['mode'] == 'mean_std':
                 stats_keys = ['mean', 'std']
                 mean, std = itemgetter(*stats_keys)(norm_stats['stats'])
@@ -131,7 +130,7 @@ class Normalizer:
             if isinstance(input, Array):
                 input = input[:]
             if isinstance(input, ndarray):
-                input = torch.from_numpy(input)
+                input = torch.from_numpy(input).float()
             if norm_stats['mode'] == 'mean_std':
                 stats_keys = ['mean', 'std']
                 mean, std = itemgetter(*stats_keys)(norm_stats['stats'])

@@ -31,8 +31,11 @@ class Trainer:
             cfg.lr_scheduler, optimizer=self.optimizer
         )
         self.train_dataloader = hydra.utils.instantiate(cfg.train_dataloader)
-        self.val_dataloader = None if cfg.val_dataloader is None \
-            else hydra.utils.instantiate(cfg.val_dataloader)
+        if cfg.val_dataloader is None:
+            self.val_dataloader = None
+        else:
+            self.val_dataloader = hydra.utils.instantiate(cfg.val_dataloader)
+            self.val_dataloader.dataset.set_normalizer(self.train_dataloader.dataset.get_normalizer())
 
     def run(self) -> None:
         run_dir = HydraConfig.get().runtime.output_dir

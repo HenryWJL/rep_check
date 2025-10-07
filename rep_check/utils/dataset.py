@@ -1,26 +1,18 @@
 import zarr
 import torch
 from einops import rearrange
-from typing import Optional
 from torch.utils.data import Dataset
 from rep_check.utils.normalizer import Normalizer
 
 
 class PoseLandmarkDataset(Dataset):
 
-    def __init__(
-        self,
-        zarr_path: str,
-        normalizer: Optional[Normalizer] = None
-    ) -> None:
+    def __init__(self, zarr_path: str) -> None:
         self.root = zarr.open(zarr_path, mode="r")
         self.landmarks = self.root["landmark"]
         self.labels = self.root["label"]
-        if normalizer is None:
-            self.normalizer = Normalizer()
-            self.normalizer.fit(rearrange(self.landmarks[:], 'n c t j -> (n t) c j'))
-        else:
-            self.normalizer = normalizer
+        self.normalizer = Normalizer()
+        self.normalizer.fit(rearrange(self.landmarks[:], 'n c t j -> (n t) c j'), mode='max_min')
 
     def __len__(self):
         return len(self.landmarks)
