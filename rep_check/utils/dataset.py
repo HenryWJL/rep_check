@@ -1,6 +1,8 @@
 import zarr
 import torch
+from einops import rearrange
 from torch.utils.data import Dataset
+from rep_check.utils.normalizer import Normalizer
 
 
 class PoseLandmarkDataset(Dataset):
@@ -9,6 +11,8 @@ class PoseLandmarkDataset(Dataset):
         self.root = zarr.open(zarr_path, mode="r")
         self.landmarks = self.root["landmark"]
         self.labels = self.root["label"]
+        self.normalizer = Normalizer()
+        self.normalizer.fit(rearrange(self.landmarks[:], 'n c t j -> (n t) c j'))
 
     def __len__(self):
         return len(self.landmarks)
@@ -17,5 +21,13 @@ class PoseLandmarkDataset(Dataset):
         landmark = self.landmarks[idx]
         label = self.labels[idx]
         landmark = torch.from_numpy(landmark).float()
-        label = torch.tensor(label, dtype=torch.long)        
+        label = torch.tensor(label, dtype=torch.long)
+        landmark = self.normalizer.normalize(rearrange(landmark, 'c t j -> t c j'))
+        landmark = rearrange(landmark, 't c j -> c t j')   
         return landmark, label
+    
+    def set_normalizer(self, normalizer: Normalizer) -> None:
+        self.normalizer = normalizer
+
+    def get_normalizer(self) -> Normalizer:
+        return self.normalizer
