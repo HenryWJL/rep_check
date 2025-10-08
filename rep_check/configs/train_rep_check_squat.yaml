@@ -27,7 +27,7 @@ optimizer:
 
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.MultiStepLR
-  milestones: [10]
+  milestones: [10, 50]
   gamma: 0.1
 
 train_dataloader:
@@ -45,7 +45,7 @@ val_dataloader:
   dataset:
     _target_: rep_check.utils.dataset.PoseLandmarkDataset
     zarr_path: data/processed/test/level2.zarr
-  batch_size: ${batch_size}
+  batch_size: 16
   shuffle: false
   pin_memory: true
   num_workers: ${num_workers}
