@@ -4,6 +4,7 @@ import random
 import torch
 import torch.nn as nn
 import numpy as np
+from copy import deepcopy
 from tqdm import tqdm
 from omegaconf import OmegaConf
 from hydra.core.hydra_config import HydraConfig
@@ -14,6 +15,7 @@ from rep_check.utils.visualizer import plot_curves
 class Trainer:
 
     def __init__(self, cfg: OmegaConf) -> None:
+        # Set seed
         torch.manual_seed(cfg.seed)
         np.random.seed(cfg.seed)
         random.seed(cfg.seed)
@@ -22,15 +24,20 @@ class Trainer:
         self.device = torch.device(cfg.device)
         self.num_epochs = cfg.num_epochs
         self.val_freq = cfg.val_freq
+        # Model
         self.model = hydra.utils.instantiate(cfg.model)
         self.model.to(self.device)
+        # Loss function
         self.criterion = nn.CrossEntropyLoss()
+        # Optimizer
         self.optimizer = hydra.utils.instantiate(
             cfg.optimizer, params=self.model.parameters()
         )
+        # Learning rate scheduler
         self.lr_scheduler = hydra.utils.instantiate(
             cfg.lr_scheduler, optimizer=self.optimizer
         )
+        # Dataloader
         self.train_dataloader = hydra.utils.instantiate(cfg.train_dataloader)
         self.normalizer = self.train_dataloader.dataset.get_normalizer()
         if cfg.val_dataloader is None:
@@ -38,6 +45,11 @@ class Trainer:
         else:
             self.val_dataloader = hydra.utils.instantiate(cfg.val_dataloader)
             self.val_dataloader.dataset.set_normalizer(self.normalizer)
+        # Exponential Moving Average (EMA)
+        self.ema = None
+        if cfg.ema is not None:
+            self.ema_model = deepcopy(self.model)
+            self.ema = hydra.utils.instantiate(cfg.ema, model=self.ema_model)
 
     def run(self) -> None:
         run_dir = HydraConfig.get().runtime.output_dir
@@ -58,6 +70,8 @@ class Trainer:
                 loss = self.criterion(logits, labels)
                 loss.backward()
                 self.optimizer.step()
+                if self.ema is not None:
+                    self.ema.step(self.model)
 
                 total_loss += loss.item() * poses.size(0)
                 pred_labels = logits.max(dim=1)[1]
@@ -72,12 +86,13 @@ class Trainer:
             message += f"Train Loss: {avg_loss} | Train Accuracy: {accuracy}\n"
             
             if self.val_dataloader is not None and epoch % self.val_freq == 0:
-                self.model.eval()
+                model = self.model if self.ema is None else self.ema_model
+                model.eval()
                 total_loss, correct, total = 0.0, 0.0, 0.0
                 with torch.no_grad():
                     for poses, labels in self.val_dataloader:
                         poses, labels = poses.to(self.device), labels.to(self.device)
-                        logits = self.model(poses)
+                        logits = model(poses)
                         loss = self.criterion(logits, labels)
 
                         total_loss += loss.item() * poses.size(0)
@@ -91,7 +106,7 @@ class Trainer:
                     message += f"Validation Loss: {avg_loss} | Validation Accuracy: {accuracy}\n"
                     # Store checkpoint information
                     state_dict = dict(
-                        model=self.model.state_dict(),
+                        model=self.model.state_dict() if self.ema is None else self.ema_model.state_dict(),
                         normalizer=self.normalizer
                     )
                     self.ckpt_manager.update(accuracy, state_dict)
@@ -100,7 +115,7 @@ class Trainer:
         # Save checkpoints
         if self.val_dataloader is None:
             state_dict = dict(
-                model=self.model.state_dict(),
+                model=self.model.state_dict() if self.ema is None else self.ema_model.state_dict(),
                 normalizer=self.normalizer
             )
             self.ckpt_manager.save(state_dict)

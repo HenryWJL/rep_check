@@ -57,3 +57,11 @@ ckpt_manager:
   topk: 5
   mode: min
   save_last: true
+
+ema:
+  _target_: rep_check.utils.ema.EMA
+  update_after_step: 0
+  inv_gamma: 1.0
+  power: 0.75
+  min_value: 0.0
+  max_value: 0.9999
