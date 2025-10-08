@@ -102,6 +102,7 @@ class STGCN(nn.Module):
         in_channels: int,
         num_classes: int,
         graph: MediaPipeGraph,
+        temporal_kernel_size: Optional[int] = 9,
         edge_weights: Optional[bool] = True,
         dropout: Optional[float] = 0.0
     ):
@@ -111,7 +112,6 @@ class STGCN(nn.Module):
         self.register_buffer('A', A)
         # GCN layers
         spatial_kernel_size = A.size(0)
-        temporal_kernel_size = 9
         kernel_size = (temporal_kernel_size, spatial_kernel_size)
         self.input_norm = nn.BatchNorm1d(in_channels * A.size(1))
         self.blocks = nn.ModuleList((

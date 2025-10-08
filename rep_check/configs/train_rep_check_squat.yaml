@@ -17,6 +17,7 @@ model:
     max_hop: 1
     dilation: 1
     strategy: spatial
+  temporal_kernel_size: 9
   edge_weights: true
   dropout: 0.5
 
@@ -27,7 +28,7 @@ optimizer:
 
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.MultiStepLR
-  milestones: []
+  milestones: [20]
   gamma: 0.1
 
 train_dataloader:
@@ -58,10 +59,4 @@ ckpt_manager:
   mode: min
   save_last: true
 
-ema:
-  _target_: rep_check.utils.ema.EMA
-  update_after_step: 0
-  inv_gamma: 1.0
-  power: 0.75
-  min_value: 0.0
-  max_value: 0.9999
+ema: null
