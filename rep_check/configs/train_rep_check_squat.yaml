@@ -44,8 +44,16 @@ val_dataloader:
   _target_: torch.utils.data.DataLoader
   dataset:
     _target_: rep_check.utils.dataset.PoseLandmarkDataset
-    zarr_path: data/processed/test/level1.zarr
+    zarr_path: data/processed/test/level2.zarr
   batch_size: ${batch_size}
   shuffle: false
   pin_memory: true
   num_workers: ${num_workers}
+
+ckpt_manager:
+  _target_: rep_check.utils.ckpt_manager.CheckpointManager
+  save_dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}/checkpoints
+  val_freq: ${val_freq}
+  topk: 5
+  mode: min
+  save_last: true
