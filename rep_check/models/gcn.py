@@ -118,7 +118,9 @@ class STGCN(nn.Module):
             STGCNBlock(in_channels, 64, kernel_size, 1, residual=False),
             STGCNBlock(64, 64, kernel_size, 1, dropout),
             STGCNBlock(64, 128, kernel_size, 2, dropout),
+            STGCNBlock(128, 128, kernel_size, 1, dropout),
             STGCNBlock(128, 256, kernel_size, 2, dropout),
+            STGCNBlock(256, 256, kernel_size, 1, dropout)
         ))
         # Initialize edge weights
         if edge_weights:
