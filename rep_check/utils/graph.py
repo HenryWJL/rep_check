@@ -62,7 +62,7 @@ class MediaPipeGraph():
         elif self.strategy == 'distance':
             A = np.zeros((len(valid_hop), self.num_node, self.num_node))
             for i, hop in enumerate(valid_hop):
-                A[i][self.hop_dist == hop] = normalized_adjacency[self.hop_dist == hop]
+                A[i][self.hop_distance == hop] = normalized_adjacency[self.hop_distance == hop]
         elif self.strategy == 'spatial':
             center_id = 22
             A = []

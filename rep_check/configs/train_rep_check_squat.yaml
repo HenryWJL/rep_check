@@ -28,7 +28,7 @@ optimizer:
 
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.MultiStepLR
-  milestones: [20]
+  milestones: [30]
   gamma: 0.1
 
 train_dataloader:
