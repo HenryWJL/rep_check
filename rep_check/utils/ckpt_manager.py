@@ -1,5 +1,5 @@
-import os
 import torch
+from pathlib import Path
 from typing import Optional, Literal, Dict
 
 
@@ -25,7 +25,8 @@ class CheckpointManager:
         """
         assert topk >= 0, "@topk must be a non-negative integer!"
         assert mode in ['max', 'min']
-        self.save_dir = os.makedirs(save_dir, exist_ok=True)
+        self.save_dir = Path(save_dir).expanduser().absolute()
+        self.save_dir.mkdir(parents=True, exist_ok=True)
         self.val_freq = val_freq
         self.topk = topk
         self.mode = mode
