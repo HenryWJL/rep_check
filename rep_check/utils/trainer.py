@@ -18,6 +18,7 @@ class Trainer:
         np.random.seed(cfg.seed)
         random.seed(cfg.seed)
         self.logger = create_logger()
+        self.ckpt_manager = hydra.utils.instantiate(cfg.ckpt_manager)
         self.device = torch.device(cfg.device)
         self.num_epochs = cfg.num_epochs
         self.val_freq = cfg.val_freq
@@ -31,17 +32,16 @@ class Trainer:
             cfg.lr_scheduler, optimizer=self.optimizer
         )
         self.train_dataloader = hydra.utils.instantiate(cfg.train_dataloader)
+        self.normalizer = self.train_dataloader.dataset.get_normalizer()
         if cfg.val_dataloader is None:
             self.val_dataloader = None
         else:
             self.val_dataloader = hydra.utils.instantiate(cfg.val_dataloader)
-            self.val_dataloader.dataset.set_normalizer(self.train_dataloader.dataset.get_normalizer())
+            self.val_dataloader.dataset.set_normalizer(self.normalizer)
 
     def run(self) -> None:
         run_dir = HydraConfig.get().runtime.output_dir
-        ckpt_dir = os.path.join(run_dir, "checkpoints")
         plot_dir = os.path.join(run_dir, "plots")
-        os.makedirs(ckpt_dir, exist_ok=True)
         os.makedirs(plot_dir, exist_ok=True)
         train_loss = []
         val_loss = []
@@ -89,12 +89,23 @@ class Trainer:
                 val_loss.append(avg_loss)
                 val_acc.append(accuracy)
                 message += f"Validation Loss: {avg_loss} | Validation Accuracy: {accuracy}\n"
-                # Save checkpoints
-                ckpt_path = os.path.join(ckpt_dir, f"epoch={epoch}-val_acc={accuracy}.pth")
-                torch.save(self.model.state_dict(), ckpt_path)
+                # Store checkpoint information
+                state_dict = dict(
+                    model=self.model.state_dict(),
+                    normalizer=self.normalizer
+                )
+                self.ckpt_manager.update(accuracy, state_dict)
             # Logging
             self.logger.info(message)
-        torch.save(self.model.state_dict(), f"{ckpt_dir}/rep_check_squat.pth")
+        # Save checkpoints
+        if self.val_dataloader is None:
+            state_dict = dict(
+                model=self.model.state_dict(),
+                normalizer=self.normalizer
+            )
+            self.ckpt_manager.save(state_dict)
+        else:
+            self.ckpt_manager.save_topk()
         # Plot loss and accuracy curves
         plot_curves(self.num_epochs, train_loss, train_acc, f"{plot_dir}/train_curves.png")
         if val_loss and val_acc:
