@@ -84,17 +84,17 @@ class Trainer:
                         pred_labels = logits.max(dim=1)[1]
                         correct += pred_labels.eq(labels).sum().item()
                         total += poses.size(0)
-                avg_loss = total_loss / total
-                accuracy = 100.0 * correct / total
-                val_loss.append(avg_loss)
-                val_acc.append(accuracy)
-                message += f"Validation Loss: {avg_loss} | Validation Accuracy: {accuracy}\n"
-                # Store checkpoint information
-                state_dict = dict(
-                    model=self.model.state_dict(),
-                    normalizer=self.normalizer
-                )
-                self.ckpt_manager.update(accuracy, state_dict)
+                    avg_loss = total_loss / total
+                    accuracy = 100.0 * correct / total
+                    val_loss.append(avg_loss)
+                    val_acc.append(accuracy)
+                    message += f"Validation Loss: {avg_loss} | Validation Accuracy: {accuracy}\n"
+                    # Store checkpoint information
+                    state_dict = dict(
+                        model=self.model.state_dict(),
+                        normalizer=self.normalizer
+                    )
+                    self.ckpt_manager.update(accuracy, state_dict)
             # Logging
             self.logger.info(message)
         # Save checkpoints
