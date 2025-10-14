@@ -56,7 +56,5 @@ ckpt_manager:
   save_dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}/checkpoints
   val_freq: ${val_freq}
   topk: 5
-  mode: min
+  mode: max
   save_last: true
-
-ema: null
