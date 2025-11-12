@@ -114,13 +114,25 @@ class STGCN(nn.Module):
         spatial_kernel_size = A.size(0)
         kernel_size = (temporal_kernel_size, spatial_kernel_size)
         self.input_norm = nn.BatchNorm1d(in_channels * A.size(1))
+        # self.blocks = nn.ModuleList((
+        #     STGCNBlock(in_channels, 64, kernel_size, 1, residual=False),
+        #     STGCNBlock(64, 64, kernel_size, 1, dropout),
+        #     STGCNBlock(64, 128, kernel_size, 2, dropout),
+        #     STGCNBlock(128, 128, kernel_size, 1, dropout),
+        #     STGCNBlock(128, 256, kernel_size, 2, dropout),
+        #     # STGCNBlock(256, 256, kernel_size, 1, dropout),
+        # ))
         self.blocks = nn.ModuleList((
             STGCNBlock(in_channels, 64, kernel_size, 1, residual=False),
             STGCNBlock(64, 64, kernel_size, 1, dropout),
+            STGCNBlock(64, 64, kernel_size, 1, dropout),
+            STGCNBlock(64, 64, kernel_size, 1, dropout),
             STGCNBlock(64, 128, kernel_size, 2, dropout),
             STGCNBlock(128, 128, kernel_size, 1, dropout),
+            STGCNBlock(128, 128, kernel_size, 1, dropout),
             STGCNBlock(128, 256, kernel_size, 2, dropout),
-            # STGCNBlock(256, 256, kernel_size, 1, dropout),
+            STGCNBlock(256, 256, kernel_size, 1, dropout),
+            STGCNBlock(256, 256, kernel_size, 1, dropout),
         ))
         # Initialize edge weights
         if edge_weights:
@@ -132,6 +144,26 @@ class STGCN(nn.Module):
             self.edge_weights = [1.0] * len(self.blocks)
         # Final layer
         self.fcn = nn.Conv2d(256, num_classes, 1)
+        # Initialize weights
+        self.init_weights()
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm1d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+        # Edge weights (if learnable)
+        if hasattr(self, 'edge_weights'):
+            for w in self.edge_weights:
+                if isinstance(w, nn.Parameter):
+                    nn.init.constant_(w, 1.0)
 
     def forward(self, x: Tensor):
         """
