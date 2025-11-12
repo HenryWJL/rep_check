@@ -12,7 +12,7 @@ class PoseLandmarkDataset(Dataset):
         self.landmarks = self.root["landmark"]
         self.labels = self.root["label"]
         self.normalizer = Normalizer()
-        self.normalizer.fit(rearrange(self.landmarks[:], 'n c t j -> (n t j) c'), mode='max_min')
+        self.normalizer.fit(rearrange(self.landmarks[:], 'n c t j -> (n t j) c'), mode='mean_std')
 
     def __len__(self):
         return len(self.landmarks)
