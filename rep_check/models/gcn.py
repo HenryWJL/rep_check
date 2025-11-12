@@ -114,26 +114,26 @@ class STGCN(nn.Module):
         spatial_kernel_size = A.size(0)
         kernel_size = (temporal_kernel_size, spatial_kernel_size)
         self.input_norm = nn.BatchNorm1d(in_channels * A.size(1))
-        # self.blocks = nn.ModuleList((
-        #     STGCNBlock(in_channels, 64, kernel_size, 1, residual=False),
-        #     STGCNBlock(64, 64, kernel_size, 1, dropout),
-        #     STGCNBlock(64, 128, kernel_size, 2, dropout),
-        #     STGCNBlock(128, 128, kernel_size, 1, dropout),
-        #     STGCNBlock(128, 256, kernel_size, 2, dropout),
-        #     # STGCNBlock(256, 256, kernel_size, 1, dropout),
-        # ))
         self.blocks = nn.ModuleList((
             STGCNBlock(in_channels, 64, kernel_size, 1, residual=False),
             STGCNBlock(64, 64, kernel_size, 1, dropout),
-            STGCNBlock(64, 64, kernel_size, 1, dropout),
-            STGCNBlock(64, 64, kernel_size, 1, dropout),
             STGCNBlock(64, 128, kernel_size, 2, dropout),
             STGCNBlock(128, 128, kernel_size, 1, dropout),
-            STGCNBlock(128, 128, kernel_size, 1, dropout),
             STGCNBlock(128, 256, kernel_size, 2, dropout),
-            STGCNBlock(256, 256, kernel_size, 1, dropout),
-            STGCNBlock(256, 256, kernel_size, 1, dropout),
+            # STGCNBlock(256, 256, kernel_size, 1, dropout),
         ))
+        # self.blocks = nn.ModuleList((
+        #     STGCNBlock(in_channels, 64, kernel_size, 1, residual=False),
+        #     STGCNBlock(64, 64, kernel_size, 1, dropout),
+        #     STGCNBlock(64, 64, kernel_size, 1, dropout),
+        #     STGCNBlock(64, 64, kernel_size, 1, dropout),
+        #     STGCNBlock(64, 128, kernel_size, 2, dropout),
+        #     STGCNBlock(128, 128, kernel_size, 1, dropout),
+        #     STGCNBlock(128, 128, kernel_size, 1, dropout),
+        #     STGCNBlock(128, 256, kernel_size, 2, dropout),
+        #     STGCNBlock(256, 256, kernel_size, 1, dropout),
+        #     STGCNBlock(256, 256, kernel_size, 1, dropout),
+        # ))
         # Initialize edge weights
         if edge_weights:
             self.edge_weights = nn.ParameterList([
