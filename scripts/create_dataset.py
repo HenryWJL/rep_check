@@ -21,7 +21,7 @@ LABEL_MAP = {
     'incorrect': 0
 }
 # Train or test
-SPLIT = "test/level3"
+SPLIT = "test"
 
 annotated_saved = False
 all_samples = []
@@ -29,7 +29,7 @@ all_labels = []
 
 for folder in DATA_FOLDERS:
     label = LABEL_MAP[folder]
-    folder_path = os.path.join(os.getcwd(), "data", "videos", SPLIT, folder)
+    folder_path = os.path.join(os.getcwd(), "data", "videos", "squat", SPLIT, folder)
     
     for file in os.listdir(folder_path):
         ext = os.path.splitext(file)[1].lower()
@@ -170,6 +170,6 @@ landmarks = np.concatenate(processed_samples, axis=0)
 labels = np.array(all_labels)
 print(f"There are {landmarks.shape[0]} samples")
 print(f"The maximum length is {landmarks.shape[2]}")
-with zarr.open(f'data/processed/{SPLIT}.zarr', mode='w') as f:
+with zarr.open(f'data/poses/squat/{SPLIT}.zarr', mode='w') as f:
     f['landmark'] = landmarks
     f['label'] = labels
