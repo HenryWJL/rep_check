@@ -1,7 +1,7 @@
 _target_: rep_check.utils.trainer.Trainer
 
 seed: 42
-device: mps
+device: cuda
 batch_size: 64
 num_epochs: 80
 val_freq: 5
@@ -45,7 +45,8 @@ train_dataloader:
   _target_: torch.utils.data.DataLoader
   dataset:
     _target_: rep_check.utils.dataset.PoseLandmarkDataset
-    zarr_path: data/poses/squat/train.zarr
+    data_path: rep_check_dataset/train
+    seq_len: 200
   batch_size: ${batch_size}
   shuffle: true
   pin_memory: true
@@ -55,8 +56,9 @@ val_dataloader:
   _target_: torch.utils.data.DataLoader
   dataset:
     _target_: rep_check.utils.dataset.PoseLandmarkDataset
-    zarr_path: data/poses/squat/test.zarr
-  batch_size: 16
+    data_path: rep_check_dataset/test
+    seq_len: 200
+  batch_size: ${batch_size}
   shuffle: false
   pin_memory: true
   num_workers: ${num_workers}
