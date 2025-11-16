@@ -3,6 +3,8 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import zarr
+import torch
+from torchvision.transforms.v2 import UniformTemporalSubsample
 
 
 mp_drawing = mp.solutions.drawing_utils
@@ -13,15 +15,17 @@ IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp'}
 VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.mkv'}
 
 # Folders containing videos/images
-DATA_FOLDERS = ['correct', 'incorrect']
+DATA_FOLDERS = ['squat_correct', 'squat_wrong', 'push_up_correct', 'push_up_wrong']
 
 # Map folder name to label
 LABEL_MAP = {
-    'correct': 1,
-    'incorrect': 0
+    'squat_correct': 0,
+    'squat_wrong': 1,
+    'push_up_correct': 2, 
+    'push_up_wrong': 3
 }
 # Train or test
-SPLIT = "test"
+SPLIT = "train"
 
 annotated_saved = False
 all_samples = []
@@ -29,7 +33,7 @@ all_labels = []
 
 for folder in DATA_FOLDERS:
     label = LABEL_MAP[folder]
-    folder_path = os.path.join(os.getcwd(), "data", "videos", "squat", SPLIT, folder)
+    folder_path = os.path.join(os.getcwd(), "data", "rep_check_dataset", SPLIT, folder)
     
     for file in os.listdir(folder_path):
         ext = os.path.splitext(file)[1].lower()
@@ -160,16 +164,11 @@ for sample in all_samples:
 
     processed_samples.append(sample)
 
-# # Save to .npy files
-# np.save('landmarks.npy', np.concatenate(processed_samples, axis=0))
-# np.save('labels.npy', np.array(all_labels))
-# print("Preprocessing complete. Saved landmarks.npy and labels.npy")
-
 # Save to zarr file
 landmarks = np.concatenate(processed_samples, axis=0)
 labels = np.array(all_labels)
 print(f"There are {landmarks.shape[0]} samples")
 print(f"The maximum length is {landmarks.shape[2]}")
-with zarr.open(f'data/poses/squat/{SPLIT}.zarr', mode='w') as f:
+with zarr.open(f'data/rep_check/{SPLIT}.zarr', mode='w') as f:
     f['landmark'] = landmarks
     f['label'] = labels
