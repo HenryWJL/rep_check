@@ -22,6 +22,7 @@ model:
     temporal_kernel_size: 9
     edge_weights: true
     dropout: 0.5
+  seq_len: 200
 
 # optimizer:
 #   _target_: torch.optim.Adam
@@ -47,8 +48,7 @@ train_dataloader:
   _target_: torch.utils.data.DataLoader
   dataset:
     _target_: rep_check.utils.dataset.PoseLandmarkDataset
-    data_path: rep_check_dataset/train
-    seq_len: 200
+    zarr_path: rep_check_dataset/train.zarr
   batch_size: ${batch_size}
   shuffle: true
   pin_memory: true
@@ -58,8 +58,7 @@ val_dataloader:
   _target_: torch.utils.data.DataLoader
   dataset:
     _target_: rep_check.utils.dataset.PoseLandmarkDataset
-    data_path: rep_check_dataset/test
-    seq_len: 200
+    zarr_path: rep_check_dataset/test.zarr
   batch_size: ${batch_size}
   shuffle: false
   pin_memory: true
