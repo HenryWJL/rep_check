@@ -21,14 +21,17 @@ class RepCheck(nn.Module):
             min_tracking_confidence=0.5
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        batch_size = x.shape[0]
-        device = x.device
-        x = rearrange(x, "b t c h w -> (b t) h w c").cpu().numpy()
-        # Unnormalize to 0-255
-        x = (x * 255).astype(np.uint8)
+    def forward(self, pose_landmark: torch.Tensor) -> torch.Tensor:
+        return self.cls_model(pose_landmark)
+    
+    def predict(self, video: np.ndarray, device: torch.device) -> int:
+        """
+        Args:
+            video: (T, H, W, C)
+        """
+        self.eval()
         pose_landmarks = []
-        for frame in x:
+        for frame in video:
             results = self.mp_pose.process(frame)
             if results.pose_landmarks:
                 pose_landmark = []
@@ -52,8 +55,9 @@ class RepCheck(nn.Module):
                 # If no pose detected, fill zeros
                 pose_landmarks.append(np.zeros((23, 4), dtype=np.float32))
         pose_landmarks = np.stack(pose_landmarks)
-        pose_landmarks = rearrange(pose_landmarks, "(b t) v c -> b c t v", b=batch_size)
         pose_landmarks = torch.from_numpy(pose_landmarks).float().to(device)
-        print(pose_landmarks.shape)
-        logits = self.cls_model(pose_landmarks)
-        return logits
+        pose_landmarks = rearrange(pose_landmarks, "(t v c -> 1 c t v")
+        with torch.no_grad():
+            logits = self.forward(pose_landmarks)
+            pred = torch.argmax(logits, dim=1).item()
+        return pred
