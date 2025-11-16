@@ -12,7 +12,7 @@ model:
   cls_model:
     _target_: rep_check.models.gcn.STGCN
     in_channels: 4
-    num_classes: 2
+    num_classes: 4
     graph:
       _target_: rep_check.utils.graph.MediaPipeGraph
       num_node: 23
