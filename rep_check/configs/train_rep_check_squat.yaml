@@ -8,18 +8,20 @@ val_freq: 5
 num_workers: 4
 
 model:
-  _target_: rep_check.models.gcn.STGCN
-  in_channels: 4
-  num_classes: 2
-  graph:
-    _target_: rep_check.utils.graph.MediaPipeGraph
-    num_node: 23
-    max_hop: 1
-    dilation: 1
-    strategy: spatial
-  temporal_kernel_size: 9
-  edge_weights: true
-  dropout: 0.5
+  _target_: rep_check.models.rep_check.RepCheck
+  cls_model:
+    _target_: rep_check.models.gcn.STGCN
+    in_channels: 4
+    num_classes: 2
+    graph:
+      _target_: rep_check.utils.graph.MediaPipeGraph
+      num_node: 23
+      max_hop: 1
+      dilation: 1
+      strategy: spatial
+    temporal_kernel_size: 9
+    edge_weights: true
+    dropout: 0.5
 
 # optimizer:
 #   _target_: torch.optim.Adam
