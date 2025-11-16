@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import mediapipe as mp
+from torchvision.transforms.v2 import UniformTemporalSubsample
 from einops import rearrange
 from rep_check.models.gcn import STGCN
 
@@ -11,6 +12,7 @@ class RepCheck(nn.Module):
     def __init__(
         self,
         cls_model: STGCN,
+        seq_len: int
     ) -> None:
         super().__init__()
         self.cls_model = cls_model
@@ -20,6 +22,7 @@ class RepCheck(nn.Module):
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5
         )
+        self.transform = UniformTemporalSubsample(seq_len)
 
     def forward(self, pose_landmark: torch.Tensor) -> torch.Tensor:
         return self.cls_model(pose_landmark)
@@ -29,6 +32,11 @@ class RepCheck(nn.Module):
         Args:
             video: (T, H, W, C)
         """
+        # Resample videos to a fixed length
+        video = torch.from_numpy(video).permute(0, 3, 1, 2).float() / 255.0
+        video = self.transform(video).permute(0, 2, 3, 1).numpy()
+        video = (video * 255).astype(np.uint8)
+        # Model prediction
         self.eval()
         pose_landmarks = []
         for frame in video:
@@ -56,7 +64,7 @@ class RepCheck(nn.Module):
                 pose_landmarks.append(np.zeros((23, 4), dtype=np.float32))
         pose_landmarks = np.stack(pose_landmarks)
         pose_landmarks = torch.from_numpy(pose_landmarks).float().to(device)
-        pose_landmarks = rearrange(pose_landmarks, "(t v c -> 1 c t v")
+        pose_landmarks = rearrange(pose_landmarks, "t v c -> 1 c t v")
         with torch.no_grad():
             logits = self.forward(pose_landmarks)
             pred = torch.argmax(logits, dim=1).item()
