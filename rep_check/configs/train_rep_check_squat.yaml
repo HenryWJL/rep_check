@@ -3,7 +3,7 @@ _target_: rep_check.utils.trainer.Trainer
 seed: 42
 device: cuda
 batch_size: 64
-num_epochs: 80
+num_epochs: 150
 val_freq: 5
 num_workers: 4
 
