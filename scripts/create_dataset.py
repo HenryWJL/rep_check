@@ -3,8 +3,20 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import zarr
-import torch
-from torchvision.transforms.v2 import UniformTemporalSubsample
+from scipy.interpolate import interp1d
+
+
+def resample_pose_sequence(poses, l):
+    T, J, C = poses.shape
+    old_t = np.arange(T)
+    new_t = np.linspace(0, T-1, l)
+
+    out = np.zeros((l, J, C), dtype=np.float32)
+    for j in range(J):
+        for c in range(C):
+            f = interp1d(old_t, poses[:, j, c], kind="linear")
+            out[:, j, c] = f(new_t)
+    return out
 
 
 mp_drawing = mp.solutions.drawing_utils
@@ -111,7 +123,7 @@ for folder in DATA_FOLDERS:
 
                     frame_array = []
                     for lm in results.pose_landmarks.landmark[11:]:
-                        frame_array.append([lm.x, lm.y, lm.z, lm.visibility])
+                        frame_array.append(np.array([lm.x, lm.y, lm.z, lm.visibility], dtype=np.float32))
 
                     # Pelvis as center
                     left_hip = results.pose_landmarks.landmark[23]
@@ -121,54 +133,51 @@ for folder in DATA_FOLDERS:
                         (left_hip.y + right_hip.y) / 2,
                         (left_hip.z + right_hip.z) / 2,
                         0.0
-                    ], dtype=float)
-                    frame_array = np.array(frame_array, dtype=float)
+                    ], dtype=np.float32)
+                    frame_array.append(pelvis)
+                    frame_array = np.stack(frame_array, axis=0)  # [num_joints, num_channels]
 
                     # Center coords by subtracting by pelvis coords and set pevlis xyz coords to [0, 0, 0]
                     frame_array[:, :3] -= pelvis[:3]
-                    pelvis_zero = np.array([0.0, 0.0, 0.0, 0.0], dtype=float)
-                    frame_array = np.vstack([frame_array, pelvis_zero])
-
-                    frame_array = frame_array.T[:, np.newaxis, :]
                     frames_list.append(frame_array)
 
             cap.release()
 
             if frames_list:
-                video_array = np.concatenate(frames_list, axis=1)
-                all_samples.append(video_array[np.newaxis, ...])
+                video_array = np.stack(frames_list, axis=0)  # [num_frames, num_joints, num_channels]
+                video_array = resample_pose_sequence(video_array, 150)
+                all_samples.append(video_array)
                 all_labels.append(label)
 
-# Set  all data frames to 200
-TARGET_FRAMES = 200
-processed_samples = []
 
-for sample in all_samples:
-    f = sample.shape[2]
+# # Set  all data frames to 200
+# TARGET_FRAMES = 200
+# processed_samples = []
+# for sample in all_samples:
+#     f = sample.shape[2]
 
-    if f < TARGET_FRAMES:
-        # Zero pad
-        pad_width = ((0, 0), (0, 0), (0, TARGET_FRAMES - f), (0, 0))
-        sample = np.pad(sample, pad_width, mode='constant', constant_values=0)
+#     if f < TARGET_FRAMES:
+#         # Zero pad
+#         pad_width = ((0, 0), (0, 0), (0, TARGET_FRAMES - f), (0, 0))
+#         sample = np.pad(sample, pad_width, mode='constant', constant_values=0)
 
-    elif f > TARGET_FRAMES:
-        # Resample down to 200 frames
-        old_indices = np.linspace(0, f - 1, f)
-        new_indices = np.linspace(0, f - 1, TARGET_FRAMES)
+#     elif f > TARGET_FRAMES:
+#         # Resample down to 200 frames
+#         old_indices = np.linspace(0, f - 1, f)
+#         new_indices = np.linspace(0, f - 1, TARGET_FRAMES)
 
-        # Resample along the frame dimension
-        num_dims = sample.shape[0] * sample.shape[1] * sample.shape[3]
-        reshaped = sample.reshape(num_dims, f)  # flatten everything except frames
-        resampled = np.array([np.interp(new_indices, old_indices, row) for row in reshaped])
-        sample = resampled.reshape(sample.shape[0], sample.shape[1], TARGET_FRAMES, sample.shape[3])
+#         # Resample along the frame dimension
+#         num_dims = sample.shape[0] * sample.shape[1] * sample.shape[3]
+#         reshaped = sample.reshape(num_dims, f)  # flatten everything except frames
+#         resampled = np.array([np.interp(new_indices, old_indices, row) for row in reshaped])
+#         sample = resampled.reshape(sample.shape[0], sample.shape[1], TARGET_FRAMES, sample.shape[3])
 
-    processed_samples.append(sample)
+#     processed_samples.append(sample)
 
 # Save to zarr file
-landmarks = np.concatenate(processed_samples, axis=0)
+landmarks = np.stack(all_samples, axis=0)
 labels = np.array(all_labels)
-print(f"There are {landmarks.shape[0]} samples")
-print(f"The maximum length is {landmarks.shape[2]}")
+print(f"Data shape: {landmarks.shape}")
 with zarr.open(f'data/rep_check/{SPLIT}.zarr', mode='w') as f:
     f['landmark'] = landmarks
     f['label'] = labels
