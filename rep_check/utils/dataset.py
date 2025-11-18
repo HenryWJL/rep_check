@@ -12,7 +12,7 @@ class PoseLandmarkDataset(Dataset):
         self.landmarks = self.root["landmark"]
         self.labels = self.root["label"]
         self.normalizer = Normalizer()
-        self.normalizer.fit(rearrange(self.landmarks[:], 'n c t j -> (n t j) c'), mode='mean_std')
+        self.normalizer.fit(rearrange(self.landmarks[:], 'n t j c -> (n t j) c'), mode='mean_std')
 
     def __len__(self):
         return len(self.landmarks)
@@ -22,7 +22,7 @@ class PoseLandmarkDataset(Dataset):
         label = self.labels[idx]
         landmark = torch.from_numpy(landmark).float()
         label = torch.tensor(label, dtype=torch.long)
-        landmark = self.normalizer.normalize(rearrange(landmark, 'c t j -> (t j) c'))
+        landmark = self.normalizer.normalize(rearrange(landmark, 't j c -> (t j) c'))
         landmark = rearrange(landmark, '(t j) c -> c t j', j=23)   
         return landmark, label
     
