@@ -3,7 +3,7 @@ _target_: rep_check.utils.trainer.Trainer
 seed: 42
 device: cuda
 batch_size: 64
-num_epochs: 150
+num_epochs: 80
 val_freq: 5
 num_workers: 4
 
@@ -22,7 +22,7 @@ model:
     temporal_kernel_size: 9
     edge_weights: true
     dropout: 0.5
-  seq_len: 200
+  seq_len: 150
 
 # optimizer:
 #   _target_: torch.optim.Adam
