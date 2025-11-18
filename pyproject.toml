@@ -19,6 +19,7 @@ dependencies = [
   "hydra-core",
   "omegaconf",
   "tqdm",
+  "streamlit",
 ]
 
 [tool.setuptools]
