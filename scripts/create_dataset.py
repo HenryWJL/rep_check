@@ -6,17 +6,30 @@ import zarr
 from scipy.interpolate import interp1d
 
 
+# def resample_pose_sequence(poses, l):
+#     T, J, C = poses.shape
+#     old_t = np.arange(T)
+#     new_t = np.linspace(0, T-1, l)
+
+#     out = np.zeros((l, J, C), dtype=np.float32)
+#     for j in range(J):
+#         for c in range(C):
+#             f = interp1d(old_t, poses[:, j, c], kind="linear")
+#             out[:, j, c] = f(new_t)
+#     return out
+
+
 def resample_pose_sequence(poses, l):
     T, J, C = poses.shape
-    old_t = np.arange(T)
-    new_t = np.linspace(0, T-1, l)
-
-    out = np.zeros((l, J, C), dtype=np.float32)
-    for j in range(J):
-        for c in range(C):
-            f = interp1d(old_t, poses[:, j, c], kind="linear")
-            out[:, j, c] = f(new_t)
-    return out
+    if T == l:
+        return poses
+    elif T < l:
+        out = np.zeros((l, J, C), dtype=poses.dtype)
+        out[:T] = poses
+        return out
+    else:
+        idx = np.round(np.linspace(0, T - 1, l)).astype(int)
+        return poses[idx]
 
 
 mp_drawing = mp.solutions.drawing_utils
@@ -151,26 +164,26 @@ for folder in DATA_FOLDERS:
 
 
 # # Set  all data frames to 200
-# TARGET_FRAMES = 200
+# l = 200
 # processed_samples = []
 # for sample in all_samples:
 #     f = sample.shape[2]
 
-#     if f < TARGET_FRAMES:
+#     if f < l:
 #         # Zero pad
-#         pad_width = ((0, 0), (0, 0), (0, TARGET_FRAMES - f), (0, 0))
+#         pad_width = ((0, 0), (0, 0), (0, l - f), (0, 0))
 #         sample = np.pad(sample, pad_width, mode='constant', constant_values=0)
 
-#     elif f > TARGET_FRAMES:
+#     elif f > l:
 #         # Resample down to 200 frames
 #         old_indices = np.linspace(0, f - 1, f)
-#         new_indices = np.linspace(0, f - 1, TARGET_FRAMES)
+#         new_indices = np.linspace(0, f - 1, l)
 
 #         # Resample along the frame dimension
 #         num_dims = sample.shape[0] * sample.shape[1] * sample.shape[3]
 #         reshaped = sample.reshape(num_dims, f)  # flatten everything except frames
 #         resampled = np.array([np.interp(new_indices, old_indices, row) for row in reshaped])
-#         sample = resampled.reshape(sample.shape[0], sample.shape[1], TARGET_FRAMES, sample.shape[3])
+#         sample = resampled.reshape(sample.shape[0], sample.shape[1], l, sample.shape[3])
 
 #     processed_samples.append(sample)
 
