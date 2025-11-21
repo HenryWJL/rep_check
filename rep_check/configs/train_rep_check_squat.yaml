@@ -39,9 +39,17 @@ optimizer:
 #   _target_: torch.optim.lr_scheduler.MultiStepLR
 #   milestones: [30]
 #   gamma: 0.1
+
+# lr_scheduler:
+#   _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+#   T_max: ${num_epochs}
+#   eta_min: 1e-4
+
 lr_scheduler:
-  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _target_: rep_check.utils.lr_scheduler.CosineAnnealingLRWarmup
+  warmup_epochs: 10
   T_max: ${num_epochs}
+  start_factor: 0.05
   eta_min: 1e-4
 
 train_dataloader:
