@@ -40,18 +40,14 @@ IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp'}
 VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.mkv'}
 
 # Folders containing videos/images
-DATA_FOLDERS = ['correct', 'knee_valgus', 'butt_wink', 'forward_lean', 'insufficient_depth']
+DATA_FOLDERS = ['push_up_correct', 'push_up_wrong']
 
 # Map folder name to label
 LABEL_MAP = {
-    'correct': 0,
-    'knee_valgus': 1,
-    'butt_wink': 2, 
-    'forward_lean': 3,
-    'insufficient_depth': 4
+    class_name: i for i, class_name in enumerate(DATA_FOLDERS)
 }
 # Train or test
-SPLIT = "test"
+SPLIT = "train"
 
 annotated_saved = False
 all_samples = []
@@ -59,7 +55,7 @@ all_labels = []
 
 for folder in DATA_FOLDERS:
     label = LABEL_MAP[folder]
-    folder_path = os.path.join(os.getcwd(), "data", "squat", SPLIT, folder)
+    folder_path = os.path.join(os.getcwd(), "data", "squat_and_push_up_4_classes", SPLIT, folder)
     
     for file in os.listdir(folder_path):
         ext = os.path.splitext(file)[1].lower()
@@ -192,6 +188,6 @@ for folder in DATA_FOLDERS:
 landmarks = np.stack(all_samples, axis=0)
 labels = np.array(all_labels)
 print(f"Data shape: {landmarks.shape}")
-with zarr.open(f'data/rep_check/{SPLIT}.zarr', mode='w') as f:
+with zarr.open(f'data/pose/{SPLIT}.zarr', mode='w') as f:
     f['landmark'] = landmarks
     f['label'] = labels
