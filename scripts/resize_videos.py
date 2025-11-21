@@ -2,14 +2,15 @@ import os
 import subprocess
 
 # -------- CONFIG --------
-ROOT = "data/rep_check_dataset"                  # your root directory
-TARGET_SIZE = (320, 320)       # resize to W x H (width, height)
-VIDEO_EXT = ".mp4"
+ROOT = "data/squat"                  # your root directory
+TARGET_SIZE = (320, 320)             # resize to W x H
+VIDEO_EXTs = [".mp4", ".mov"]
 FFMPEG = "ffmpeg"
 # -------------------------
 
 
 def resize_and_rename_videos(root_dir):
+
     for split in ["train", "test"]:
         split_path = os.path.join(root_dir, split)
         if not os.path.isdir(split_path):
@@ -25,23 +26,25 @@ def resize_and_rename_videos(root_dir):
 
             print(f"  Processing class: {cls}")
 
-            videos = sorted(
-                [f for f in os.listdir(cls_path) if f.lower().endswith(VIDEO_EXT)]
-            )
+            # Collect all mp4/mov files
+            videos = sorted([
+                f for f in os.listdir(cls_path)
+                if f.lower().endswith(tuple(VIDEO_EXTs))
+            ])
 
-            # Temp directory to avoid name conflicts
+            # Tmp directory
             tmp_dir = os.path.join(cls_path, "_tmp_processed")
             os.makedirs(tmp_dir, exist_ok=True)
 
-            # Resize individual videos
+            # Resize + rename
             for idx, vid_name in enumerate(videos, start=1):
                 input_path = os.path.join(cls_path, vid_name)
 
-                # Format the new filename
-                new_name = f"{idx:03d}{VIDEO_EXT}"
+                # keep extension (mp4/mov)
+                ext = os.path.splitext(vid_name)[1].lower()
+                new_name = f"{idx:03d}{ext}"
                 output_path = os.path.join(tmp_dir, new_name)
 
-                # ffmpeg command
                 cmd = [
                     FFMPEG, "-y",
                     "-i", input_path,
@@ -57,7 +60,7 @@ def resize_and_rename_videos(root_dir):
                 print(f"    → {new_name}")
                 subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
-            # Replace old videos with new ones
+            # Remove original videos
             for f in os.listdir(cls_path):
                 path = os.path.join(cls_path, f)
                 if os.path.isfile(path):
