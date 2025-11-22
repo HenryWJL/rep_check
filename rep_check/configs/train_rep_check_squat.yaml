@@ -22,7 +22,7 @@ model:
     temporal_kernel_size: 9
     edge_weights: true
     dropout: 0.5
-  seq_len: 150
+  seq_len: 200
 
 # optimizer:
 #   _target_: torch.optim.Adam
@@ -40,17 +40,17 @@ optimizer:
 #   milestones: [30]
 #   gamma: 0.1
 
-# lr_scheduler:
-#   _target_: torch.optim.lr_scheduler.CosineAnnealingLR
-#   T_max: ${num_epochs}
-#   eta_min: 1e-4
-
 lr_scheduler:
-  _target_: rep_check.utils.lr_scheduler.CosineAnnealingLRWarmup
-  warmup_epochs: 10
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
   T_max: ${num_epochs}
-  start_factor: 0.05
   eta_min: 1e-4
+
+# lr_scheduler:
+#   _target_: rep_check.utils.lr_scheduler.CosineAnnealingLRWarmup
+#   warmup_epochs: 10
+#   T_max: ${num_epochs}
+#   start_factor: 0.05
+#   eta_min: 1e-4
 
 train_dataloader:
   _target_: torch.utils.data.DataLoader
