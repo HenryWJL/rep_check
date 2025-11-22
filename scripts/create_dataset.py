@@ -40,14 +40,14 @@ IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp'}
 VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.mkv'}
 
 # Folders containing videos/images
-DATA_FOLDERS = ['push_up_correct', 'push_up_wrong']
+DATA_FOLDERS = ['squat_correct', 'squat_wrong']
 
 # Map folder name to label
 LABEL_MAP = {
     class_name: i for i, class_name in enumerate(DATA_FOLDERS)
 }
 # Train or test
-SPLIT = "train"
+SPLIT = "test"
 
 annotated_saved = False
 all_samples = []
@@ -155,34 +155,35 @@ for folder in DATA_FOLDERS:
 
             if frames_list:
                 video_array = np.stack(frames_list, axis=0)  # [num_frames, num_joints, num_channels]
-                video_array = resample_pose_sequence(video_array, 150)
+                # video_array = resample_pose_sequence(video_array, 150)
                 all_samples.append(video_array)
                 all_labels.append(label)
 
 
 # # Set  all data frames to 200
-# l = 200
-# processed_samples = []
-# for sample in all_samples:
-#     f = sample.shape[2]
+l = 200
+processed_samples = []
+for sample in all_samples:
+    f = sample.shape[0]
 
-#     if f < l:
-#         # Zero pad
-#         pad_width = ((0, 0), (0, 0), (0, l - f), (0, 0))
-#         sample = np.pad(sample, pad_width, mode='constant', constant_values=0)
+    if f < l:
+        # Zero pad
+        pad_width = ((0, l - f), (0, 0), (0, 0))
+        sample = np.pad(sample, pad_width, mode='constant', constant_values=0)
 
-#     elif f > l:
-#         # Resample down to 200 frames
-#         old_indices = np.linspace(0, f - 1, f)
-#         new_indices = np.linspace(0, f - 1, l)
+    elif f > l:
+        # Resample down to 200 frames
+        old_indices = np.linspace(0, f - 1, f)
+        new_indices = np.linspace(0, f - 1, l)
 
-#         # Resample along the frame dimension
-#         num_dims = sample.shape[0] * sample.shape[1] * sample.shape[3]
-#         reshaped = sample.reshape(num_dims, f)  # flatten everything except frames
-#         resampled = np.array([np.interp(new_indices, old_indices, row) for row in reshaped])
-#         sample = resampled.reshape(sample.shape[0], sample.shape[1], l, sample.shape[3])
+        # Resample along the frame dimension
+        num_dims = sample.shape[1] * sample.shape[2]
+        reshaped = sample.reshape(f, num_dims).T  # flatten everything except frames
+        resampled = np.array([np.interp(new_indices, old_indices, row) for row in reshaped])
+        sample = resampled.T.reshape(l, sample.shape[1], sample.shape[2])
 
-#     processed_samples.append(sample)
+    processed_samples.append(sample)
+all_samples = processed_samples
 
 # Save to zarr file
 landmarks = np.stack(all_samples, axis=0)
