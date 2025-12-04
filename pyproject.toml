@@ -9,6 +9,7 @@ description = ""
 requires-python = ">=3.10"
 dependencies = [
   "av",
+  "click",
   "zarr",
   "numpy",
   "opencv-python",
