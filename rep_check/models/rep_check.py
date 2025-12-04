@@ -2,9 +2,10 @@ import torch
 import torch.nn as nn
 import numpy as np
 import mediapipe as mp
-from torchvision.transforms.v2 import UniformTemporalSubsample
 from einops import rearrange
+from typing import Dict
 from rep_check.models.gcn import STGCN
+from rep_check.utils.normalizer import Normalizer
 
 
 class RepCheck(nn.Module):
@@ -22,10 +23,17 @@ class RepCheck(nn.Module):
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5
         )
+        self.normalizer = Normalizer()
         self.seq_len = seq_len
 
-    def forward(self, pose_landmark: torch.Tensor) -> torch.Tensor:
-        return self.cls_model(pose_landmark)
+    def set_normalizer(self, normalizer: Normalizer) -> None:
+        self.normalizer = normalizer
+
+    def forward(self, pose_landmarks: torch.Tensor) -> torch.Tensor:
+        batch_size = pose_landmarks.shape[0]
+        pose_landmarks = self.normalizer.normalize(rearrange(pose_landmarks, 'b c t v -> (b t v) c'))
+        pose_landmarks = rearrange(pose_landmarks, "(b t v) c -> b c t v", b=batch_size, t=self.seq_len)
+        return self.cls_model(pose_landmarks)
     
     def predict(self, video: np.ndarray, device: torch.device) -> int:
         """
@@ -74,8 +82,19 @@ class RepCheck(nn.Module):
             pose_landmarks = downsampled.reshape(self.seq_len, *pose_landmarks.shape[1:])
 
         pose_landmarks = torch.from_numpy(pose_landmarks).float().to(device)
-        pose_landmarks = rearrange(pose_landmarks, "t v c -> 1 c t v")
+        pose_landmarks = self.normalizer.normalize(rearrange(pose_landmarks, 't v c -> (t v) c'))
+        pose_landmarks = rearrange(pose_landmarks, "(t v) c -> 1 c t v", t=self.seq_len)
         with torch.no_grad():
             logits = self.forward(pose_landmarks)
             pred = torch.argmax(logits, dim=1).item()
         return pred
+    
+    def load_state_dict(self, state_dict) -> None:
+        self.cls_model.load_state_dict(state_dict['model'])
+        self.normalizer = state_dict['normalizer']
+
+    def state_dict(self) -> Dict:
+        return dict(
+            model=self.cls_model.state_dict(),
+            normalizer=self.normalizer
+        )
