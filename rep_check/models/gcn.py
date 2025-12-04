@@ -95,95 +95,6 @@ class STGCNBlock(nn.Module):
         return x, A
     
 
-# class STGCN(nn.Module):
-
-#     def __init__(
-#         self,
-#         in_channels: int,
-#         num_classes: int,
-#         graph: MediaPipeGraph,
-#         temporal_kernel_size: Optional[int] = 9,
-#         edge_weights: Optional[bool] = True,
-#         dropout: Optional[float] = 0.0
-#     ):
-#         super().__init__()
-#         # Adjacency matrix
-#         A = torch.tensor(graph.A, dtype=torch.float32, requires_grad=False)
-#         self.register_buffer('A', A)
-#         # GCN layers
-#         spatial_kernel_size = A.size(0)
-#         kernel_size = (temporal_kernel_size, spatial_kernel_size)
-#         self.input_norm = nn.BatchNorm1d(in_channels * A.size(1))
-#         self.blocks = nn.ModuleList((
-#             STGCNBlock(in_channels, 64, kernel_size, 1, residual=False),
-#             STGCNBlock(64, 64, kernel_size, 1, dropout),
-#             STGCNBlock(64, 128, kernel_size, 2, dropout),
-#             STGCNBlock(128, 128, kernel_size, 1, dropout),
-#             STGCNBlock(128, 256, kernel_size, 2, dropout),
-#         ))
-#         # self.blocks = nn.ModuleList((
-#         #     STGCNBlock(in_channels, 64, kernel_size, 1, residual=False),
-#         #     STGCNBlock(64, 64, kernel_size, 1, dropout),
-#         #     STGCNBlock(64, 64, kernel_size, 1, dropout),
-#         #     STGCNBlock(64, 64, kernel_size, 1, dropout),
-#         #     STGCNBlock(64, 128, kernel_size, 2, dropout),
-#         #     STGCNBlock(128, 128, kernel_size, 1, dropout),
-#         #     STGCNBlock(128, 128, kernel_size, 1, dropout),
-#         #     STGCNBlock(128, 256, kernel_size, 2, dropout),
-#         #     STGCNBlock(256, 256, kernel_size, 1, dropout),
-#         #     STGCNBlock(256, 256, kernel_size, 1, dropout),
-#         # ))
-#         # Initialize edge weights
-#         if edge_weights:
-#             self.edge_weights = nn.ParameterList([
-#                 nn.Parameter(torch.ones(self.A.size()))
-#                 for _ in range(len(self.blocks))
-#             ])
-#         else:
-#             self.edge_weights = [1.0] * len(self.blocks)
-#         # Final layer
-#         self.fcn = nn.Conv2d(256, num_classes, 1)
-#         # Initialize weights
-#         self.init_weights()
-
-#     def init_weights(self):
-#         for m in self.modules():
-#             if isinstance(m, nn.Conv2d):
-#                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-#                 if m.bias is not None:
-#                     nn.init.constant_(m.bias, 0)
-#             elif isinstance(m, nn.BatchNorm2d):
-#                 nn.init.constant_(m.weight, 1)
-#                 nn.init.constant_(m.bias, 0)
-#             elif isinstance(m, nn.BatchNorm1d):
-#                 nn.init.constant_(m.weight, 1)
-#                 nn.init.constant_(m.bias, 0)
-#         # Edge weights (if learnable)
-#         if hasattr(self, 'edge_weights'):
-#             for w in self.edge_weights:
-#                 if isinstance(w, nn.Parameter):
-#                     nn.init.constant_(w, 1.0)
-
-#     def forward(self, x: Tensor):
-#         """
-#         Args:
-#             x: graph sequence (batch_size, in_channels, timesteps, joints)
-#         """
-#         # Input normalization
-#         in_channels = x.shape[1]
-#         x = rearrange(x, 'b c t v -> b (v c) t')
-#         x = self.input_norm(x)
-#         x = rearrange(x, 'b (v c) t -> b c t v', c=in_channels)
-#         # Forward
-#         for block, weight in zip(self.blocks, self.edge_weights):
-#             x, _ = block(x, self.A * weight)
-#         # Global pooling
-#         x = F.avg_pool2d(x, x.shape[2:])
-#         # Output head
-#         x = self.fcn(x).flatten(1)
-#         return x
-    
-
 class STGCN(nn.Module):
 
     def __init__(
@@ -210,6 +121,18 @@ class STGCN(nn.Module):
             STGCNBlock(128, 128, kernel_size, 1, dropout),
             STGCNBlock(128, 256, kernel_size, 2, dropout),
         ))
+        # self.blocks = nn.ModuleList((
+        #     STGCNBlock(in_channels, 64, kernel_size, 1, residual=False),
+        #     STGCNBlock(64, 64, kernel_size, 1, dropout),
+        #     STGCNBlock(64, 64, kernel_size, 1, dropout),
+        #     STGCNBlock(64, 64, kernel_size, 1, dropout),
+        #     STGCNBlock(64, 128, kernel_size, 2, dropout),
+        #     STGCNBlock(128, 128, kernel_size, 1, dropout),
+        #     STGCNBlock(128, 128, kernel_size, 1, dropout),
+        #     STGCNBlock(128, 256, kernel_size, 2, dropout),
+        #     STGCNBlock(256, 256, kernel_size, 1, dropout),
+        #     STGCNBlock(256, 256, kernel_size, 1, dropout),
+        # ))
         # Initialize edge weights
         if edge_weights:
             self.edge_weights = nn.ParameterList([
@@ -219,7 +142,7 @@ class STGCN(nn.Module):
         else:
             self.edge_weights = [1.0] * len(self.blocks)
         # Final layer
-        self.fcn = nn.Conv2d(256, 1, 1)
+        self.fcn = nn.Conv2d(256, num_classes, 1)
         # Initialize weights
         self.init_weights()
 
