@@ -22,10 +22,10 @@ def main(task, video, checkpoint, device):
         config_dir=str(Path(__file__).parent.parent.joinpath("rep_check", "configs")),
         version_base=None 
     ):
-        cfg = hydra.compose(config_name=TASK_TO_CONFIG(task))
+        cfg = hydra.compose(config_name=TASK_TO_CONFIG[task])
         device = torch.device(device)
         # Load model
-        model = hydra.initialize(cfg.model)
+        model = hydra.utils.instantiate(cfg.model)
         model.to(device)
         if Path(checkpoint).is_file():
             model.load_state_dict(torch.load(checkpoint, map_location=device))
@@ -38,3 +38,7 @@ def main(task, video, checkpoint, device):
         frames = np.stack(frames)
         pred = model.predict(frames, device)
         print("Predicted class: ", pred)
+
+
+if __name__ == "__main__":
+    main()
