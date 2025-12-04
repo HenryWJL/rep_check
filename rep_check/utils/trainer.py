@@ -24,9 +24,17 @@ class Trainer:
         self.device = torch.device(cfg.device)
         self.num_epochs = cfg.num_epochs
         self.val_freq = cfg.val_freq
+        # Dataloader
+        self.train_dataloader = hydra.utils.instantiate(cfg.train_dataloader)
+        normalizer = self.train_dataloader.dataset.get_normalizer()
+        if cfg.val_dataloader is None:
+            self.val_dataloader = None
+        else:
+            self.val_dataloader = hydra.utils.instantiate(cfg.val_dataloader)
         # Model
         self.model = hydra.utils.instantiate(cfg.model)
         self.model.to(self.device)
+        self.model.set_normalizer(normalizer)
         # Loss function
         self.criterion = nn.CrossEntropyLoss()
         # Optimizer
@@ -37,14 +45,6 @@ class Trainer:
         self.lr_scheduler = hydra.utils.instantiate(
             cfg.lr_scheduler, optimizer=self.optimizer
         )
-        # Dataloader
-        self.train_dataloader = hydra.utils.instantiate(cfg.train_dataloader)
-        self.normalizer = self.train_dataloader.dataset.get_normalizer()
-        if cfg.val_dataloader is None:
-            self.val_dataloader = None
-        else:
-            self.val_dataloader = hydra.utils.instantiate(cfg.val_dataloader)
-            self.val_dataloader.dataset.set_normalizer(self.normalizer)
 
     def run(self) -> None:
         run_dir = HydraConfig.get().runtime.output_dir
@@ -97,20 +97,12 @@ class Trainer:
                     val_acc.append(accuracy)
                     message += f"Validation Loss: {avg_loss} | Validation Accuracy: {accuracy}\n"
                     # Store checkpoint information
-                    state_dict = dict(
-                        model=self.model.state_dict(),
-                        normalizer=self.normalizer
-                    )
-                    self.ckpt_manager.update(accuracy, state_dict)
+                    self.ckpt_manager.update(accuracy, self.model.state_dict())
             # Logging
             self.logger.info(message)
         # Save checkpoints
         if self.val_dataloader is None:
-            state_dict = dict(
-                model=self.model.state_dict(),
-                normalizer=self.normalizer
-            )
-            self.ckpt_manager.save(state_dict)
+            self.ckpt_manager.save(self.model.state_dict())
         else:
             self.ckpt_manager.save_topk()
         # Plot loss and accuracy curves
