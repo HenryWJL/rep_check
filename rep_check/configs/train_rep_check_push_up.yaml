@@ -1,0 +1,81 @@
+_target_: rep_check.utils.trainer.Trainer
+
+seed: 42
+device: cuda
+batch_size: 64
+num_epochs: 80
+val_freq: 5
+num_workers: 4
+
+model:
+  _target_: rep_check.models.rep_check.RepCheck
+  cls_model:
+    _target_: rep_check.models.gcn.STGCN
+    in_channels: 4
+    num_classes: 2
+    graph:
+      _target_: rep_check.utils.graph.MediaPipeGraph
+      num_node: 23
+      max_hop: 1
+      dilation: 1
+      strategy: spatial
+    temporal_kernel_size: 9
+    edge_weights: true
+    dropout: 0.5
+  seq_len: 200
+
+# optimizer:
+#   _target_: torch.optim.Adam
+#   lr: 0.01
+#   weight_decay: 0.0001
+optimizer:
+  _target_: torch.optim.SGD
+  lr: 0.01
+  momentum: 0.9
+  nesterov: true
+  weight_decay: 0.0001
+
+# lr_scheduler:
+#   _target_: torch.optim.lr_scheduler.MultiStepLR
+#   milestones: [30]
+#   gamma: 0.1
+
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  T_max: ${num_epochs}
+  eta_min: 1e-4
+
+# lr_scheduler:
+#   _target_: rep_check.utils.lr_scheduler.CosineAnnealingLRWarmup
+#   warmup_epochs: 10
+#   T_max: ${num_epochs}
+#   start_factor: 0.05
+#   eta_min: 1e-4
+
+train_dataloader:
+  _target_: torch.utils.data.DataLoader
+  dataset:
+    _target_: rep_check.utils.dataset.PoseLandmarkDataset
+    zarr_path: rep_check_dataset/train.zarr
+  batch_size: ${batch_size}
+  shuffle: true
+  pin_memory: true
+  num_workers: ${num_workers}
+
+val_dataloader:
+  _target_: torch.utils.data.DataLoader
+  dataset:
+    _target_: rep_check.utils.dataset.PoseLandmarkDataset
+    zarr_path: rep_check_dataset/test.zarr
+  batch_size: ${batch_size}
+  shuffle: false
+  pin_memory: true
+  num_workers: ${num_workers}
+
+ckpt_manager:
+  _target_: rep_check.utils.ckpt_manager.CheckpointManager
+  save_dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}/checkpoints
+  val_freq: ${val_freq}
+  topk: 5
+  mode: max
+  save_last: true
