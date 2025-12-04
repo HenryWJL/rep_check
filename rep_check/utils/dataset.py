@@ -23,8 +23,7 @@ class PoseLandmarkDataset(Dataset):
         label = self.labels[idx]
         landmark = torch.from_numpy(landmark).float()
         label = torch.tensor(label, dtype=torch.long)
-        landmark = self.normalizer.normalize(rearrange(landmark, 't j c -> (t j) c'))
-        landmark = rearrange(landmark, '(t j) c -> c t j', j=23)   
+        landmark = rearrange(landmark, 't j c -> c t j')   
         return landmark, label
     
     def set_normalizer(self, normalizer: Normalizer) -> None:
