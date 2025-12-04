@@ -1,4 +1,5 @@
 import av
+import cv2
 import click
 import hydra
 import torch
@@ -34,6 +35,7 @@ def main(task, video, checkpoint, device):
         frames = []
         for frame in container.decode(video=0):
             img = frame.to_ndarray(format="rgb24")
+            img = cv2.resize(img, (320, 320))
             frames.append(img)
         frames = np.stack(frames)
         pred = model.predict(frames, device)
