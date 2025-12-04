@@ -68,8 +68,10 @@ class Trainer:
                 self.optimizer.step()
 
                 total_loss += loss.item() * poses.size(0)
-                pred_labels = logits.max(dim=1)[1]
-                correct += pred_labels.eq(labels).sum().item()
+                # pred_labels = logits.max(dim=1)[1]
+                pred_prob = torch.sigmoid(logits)
+                pred_labels = (pred_prob > 0.5).long()
+                correct += pred_labels.eq(labels.long()).sum().item()
                 total += poses.size(0)
 
             self.lr_scheduler.step()
@@ -92,7 +94,7 @@ class Trainer:
                         # pred_labels = logits.max(dim=1)[1]
                         pred_prob = torch.sigmoid(logits)
                         pred_labels = (pred_prob > 0.5).long()
-                        correct += pred_labels.eq(labels).sum().item()
+                        correct += pred_labels.eq(labels.long()).sum().item()
                         total += poses.size(0)
                     avg_loss = total_loss / total
                     accuracy = 100.0 * correct / total
