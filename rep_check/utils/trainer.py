@@ -36,7 +36,8 @@ class Trainer:
         self.model.to(self.device)
         self.model.set_normalizer(normalizer)
         # Loss function
-        self.criterion = nn.CrossEntropyLoss()
+        # self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.BCEWithLogitsLoss()
         # Optimizer
         self.optimizer = hydra.utils.instantiate(
             cfg.optimizer, params=self.model.parameters()
@@ -88,7 +89,9 @@ class Trainer:
                         loss = self.criterion(logits, labels)
 
                         total_loss += loss.item() * poses.size(0)
-                        pred_labels = logits.max(dim=1)[1]
+                        # pred_labels = logits.max(dim=1)[1]
+                        pred_prob = torch.sigmoid(logits)
+                        pred_labels = (pred_prob > 0.5).long()
                         correct += pred_labels.eq(labels).sum().item()
                         total += poses.size(0)
                     avg_loss = total_loss / total
