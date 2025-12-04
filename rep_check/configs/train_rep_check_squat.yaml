@@ -19,15 +19,11 @@ model:
       max_hop: 1
       dilation: 1
       strategy: spatial
-    temporal_kernel_size: 9
+    temporal_kernel_size: 15
     edge_weights: true
     dropout: 0.5
   seq_len: 200
 
-# optimizer:
-#   _target_: torch.optim.Adam
-#   lr: 0.01
-#   weight_decay: 0.0001
 optimizer:
   _target_: torch.optim.SGD
   lr: 0.01
@@ -44,13 +40,6 @@ lr_scheduler:
   _target_: torch.optim.lr_scheduler.CosineAnnealingLR
   T_max: ${num_epochs}
   eta_min: 1e-4
-
-# lr_scheduler:
-#   _target_: rep_check.utils.lr_scheduler.CosineAnnealingLRWarmup
-#   warmup_epochs: 10
-#   T_max: ${num_epochs}
-#   start_factor: 0.05
-#   eta_min: 1e-4
 
 train_dataloader:
   _target_: torch.utils.data.DataLoader
