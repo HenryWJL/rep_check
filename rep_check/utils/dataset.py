@@ -22,8 +22,8 @@ class PoseLandmarkDataset(Dataset):
         landmark = self.landmarks[idx]
         label = self.labels[idx]
         landmark = torch.from_numpy(landmark).float()
-        # label = torch.tensor(label, dtype=torch.long)
-        label = torch.tensor([label], dtype=torch.float32)
+        label = torch.tensor(label, dtype=torch.long)
+        # label = torch.tensor([label], dtype=torch.float32)
         landmark = rearrange(landmark, 't j c -> c t j')   
         return landmark, label
     
