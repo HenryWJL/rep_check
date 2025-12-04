@@ -87,6 +87,8 @@ class RepCheck(nn.Module):
         with torch.no_grad():
             logits = self.forward(pose_landmarks)
             pred = torch.argmax(logits, dim=1).item()
+            # pred_prob = torch.sigmoid(logits)
+            # pred = (pred_prob > 0.5).long()
         return pred
     
     def load_state_dict(self, state_dict) -> None:
