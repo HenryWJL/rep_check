@@ -31,15 +31,10 @@ optimizer:
   nesterov: true
   weight_decay: 0.0001
 
-# lr_scheduler:
-#   _target_: torch.optim.lr_scheduler.MultiStepLR
-#   milestones: [30]
-#   gamma: 0.1
-
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.CosineAnnealingLR
   T_max: ${num_epochs}
-  eta_min: 1e-4
+  eta_min: 1e-5
 
 train_dataloader:
   _target_: torch.utils.data.DataLoader

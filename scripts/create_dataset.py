@@ -6,17 +6,30 @@ import zarr
 from scipy.interpolate import interp1d
 
 
+# def resample_pose_sequence(poses, l):
+#     T, J, C = poses.shape
+#     old_t = np.arange(T)
+#     new_t = np.linspace(0, T-1, l)
+
+#     out = np.zeros((l, J, C), dtype=np.float32)
+#     for j in range(J):
+#         for c in range(C):
+#             f = interp1d(old_t, poses[:, j, c], kind="linear")
+#             out[:, j, c] = f(new_t)
+#     return out
+
+
 def resample_pose_sequence(poses, l):
     T, J, C = poses.shape
-    old_t = np.arange(T)
-    new_t = np.linspace(0, T-1, l)
-
-    out = np.zeros((l, J, C), dtype=np.float32)
-    for j in range(J):
-        for c in range(C):
-            f = interp1d(old_t, poses[:, j, c], kind="linear")
-            out[:, j, c] = f(new_t)
-    return out
+    if T == l:
+        return poses
+    elif T < l:
+        out = np.zeros((l, J, C), dtype=poses.dtype)
+        out[:T] = poses
+        return out
+    else:
+        idx = np.round(np.linspace(0, T - 1, l)).astype(int)
+        return poses[idx]
 
 
 mp_drawing = mp.solutions.drawing_utils
@@ -27,17 +40,14 @@ IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp'}
 VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.mkv'}
 
 # Folders containing videos/images
-DATA_FOLDERS = ['squat_correct', 'squat_wrong', 'push_up_correct', 'push_up_wrong']
+DATA_FOLDERS = ['squat_correct', 'squat_wrong']
 
 # Map folder name to label
 LABEL_MAP = {
-    'squat_correct': 0,
-    'squat_wrong': 1,
-    'push_up_correct': 2, 
-    'push_up_wrong': 3
+    class_name: i for i, class_name in enumerate(DATA_FOLDERS)
 }
 # Train or test
-SPLIT = "train"
+SPLIT = "test"
 
 annotated_saved = False
 all_samples = []
@@ -45,7 +55,7 @@ all_labels = []
 
 for folder in DATA_FOLDERS:
     label = LABEL_MAP[folder]
-    folder_path = os.path.join(os.getcwd(), "data", "rep_check_dataset", SPLIT, folder)
+    folder_path = os.path.join(os.getcwd(), "data", "squat_and_push_up_4_classes", SPLIT, folder)
     
     for file in os.listdir(folder_path):
         ext = os.path.splitext(file)[1].lower()
@@ -145,39 +155,40 @@ for folder in DATA_FOLDERS:
 
             if frames_list:
                 video_array = np.stack(frames_list, axis=0)  # [num_frames, num_joints, num_channels]
-                video_array = resample_pose_sequence(video_array, 150)
+                # video_array = resample_pose_sequence(video_array, 150)
                 all_samples.append(video_array)
                 all_labels.append(label)
 
 
 # # Set  all data frames to 200
-# TARGET_FRAMES = 200
-# processed_samples = []
-# for sample in all_samples:
-#     f = sample.shape[2]
+l = 200
+processed_samples = []
+for sample in all_samples:
+    f = sample.shape[0]
 
-#     if f < TARGET_FRAMES:
-#         # Zero pad
-#         pad_width = ((0, 0), (0, 0), (0, TARGET_FRAMES - f), (0, 0))
-#         sample = np.pad(sample, pad_width, mode='constant', constant_values=0)
+    if f < l:
+        # Zero pad
+        pad_width = ((0, l - f), (0, 0), (0, 0))
+        sample = np.pad(sample, pad_width, mode='constant', constant_values=0)
 
-#     elif f > TARGET_FRAMES:
-#         # Resample down to 200 frames
-#         old_indices = np.linspace(0, f - 1, f)
-#         new_indices = np.linspace(0, f - 1, TARGET_FRAMES)
+    elif f > l:
+        # Resample down to 200 frames
+        old_indices = np.linspace(0, f - 1, f)
+        new_indices = np.linspace(0, f - 1, l)
 
-#         # Resample along the frame dimension
-#         num_dims = sample.shape[0] * sample.shape[1] * sample.shape[3]
-#         reshaped = sample.reshape(num_dims, f)  # flatten everything except frames
-#         resampled = np.array([np.interp(new_indices, old_indices, row) for row in reshaped])
-#         sample = resampled.reshape(sample.shape[0], sample.shape[1], TARGET_FRAMES, sample.shape[3])
+        # Resample along the frame dimension
+        num_dims = sample.shape[1] * sample.shape[2]
+        reshaped = sample.reshape(f, num_dims).T  # flatten everything except frames
+        resampled = np.array([np.interp(new_indices, old_indices, row) for row in reshaped])
+        sample = resampled.T.reshape(l, sample.shape[1], sample.shape[2])
 
-#     processed_samples.append(sample)
+    processed_samples.append(sample)
+all_samples = processed_samples
 
 # Save to zarr file
 landmarks = np.stack(all_samples, axis=0)
 labels = np.array(all_labels)
 print(f"Data shape: {landmarks.shape}")
-with zarr.open(f'data/rep_check/{SPLIT}.zarr', mode='w') as f:
+with zarr.open(f'data/pose/{SPLIT}.zarr', mode='w') as f:
     f['landmark'] = landmarks
     f['label'] = labels
