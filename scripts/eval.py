@@ -12,6 +12,10 @@ TASK_TO_CONFIG = {
     "push_up": "train_rep_check_push_up.yaml"
 }
 
+LABEL_TO_CLASS = {
+    0: "correct",
+    1: "wrong"
+}
 
 @click.command(help="Evaluate models.")
 @click.option("-t", "--task", type=click.Choice(["squat", "push_up"]), required=True, help="Task name.")
@@ -39,7 +43,7 @@ def main(task, video, checkpoint, device):
             frames.append(img)
         frames = np.stack(frames)
         pred = model.predict(frames, device)
-        print("Predicted class: ", pred)
+        print("Predicted class: ", LABEL_TO_CLASS[pred])
 
 
 if __name__ == "__main__":

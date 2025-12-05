@@ -85,7 +85,6 @@ class RepCheck(nn.Module):
         pose_landmarks = rearrange(pose_landmarks, "t v c -> 1 c t v")
         with torch.no_grad():
             logits = self.forward(pose_landmarks)
-            print(logits)
             pred = torch.argmax(logits, dim=1).item()
             # pred_prob = torch.sigmoid(logits)
             # pred = (pred_prob > 0.5).long()
