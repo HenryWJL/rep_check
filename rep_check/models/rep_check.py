@@ -82,15 +82,15 @@ class RepCheck(nn.Module):
             pose_landmarks = downsampled.reshape(self.seq_len, *pose_landmarks.shape[1:])
 
         pose_landmarks = torch.from_numpy(pose_landmarks).float().to(device)
-        pose_landmarks = self.normalizer.normalize(rearrange(pose_landmarks, 't v c -> (t v) c'))
-        pose_landmarks = rearrange(pose_landmarks, "(t v) c -> 1 c t v", t=self.seq_len)
+        pose_landmarks = rearrange(pose_landmarks, "t v c -> 1 c t v")
         with torch.no_grad():
             logits = self.forward(pose_landmarks)
+            print(logits)
             pred = torch.argmax(logits, dim=1).item()
             # pred_prob = torch.sigmoid(logits)
             # pred = (pred_prob > 0.5).long()
         return pred
-    
+
     def load_state_dict(self, state_dict) -> None:
         self.cls_model.load_state_dict(state_dict['model'])
         self.normalizer = state_dict['normalizer']
