@@ -19,7 +19,7 @@ model:
       max_hop: 1
       dilation: 1
       strategy: spatial
-    temporal_kernel_size: 15
+    temporal_kernel_size: 21
     edge_weights: true
     dropout: 0.5
   seq_len: 200
