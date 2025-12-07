@@ -27,6 +27,11 @@ DEFAULT_CHECKPOINTS = {
     "push_up": Path(__file__).parent.parent / "checkpoints" / "push_up.pth",
 }
 SEQ_LEN = {"squat": 200, "push_up": 200}
+TASK_TEMPORAL_KERNEL = {"push_up": 21}  # Override if checkpoint was trained with a different kernel size
+DISPLAY_TASKS = {
+    "Squat": "squat",
+    "Push up": "push_up",
+}
 MAX_WEBRTC_FRAMES = 300  # cap to avoid memory blowup (~10s at 30fps)
 RTC_CONFIG = RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]})
 
@@ -82,6 +87,8 @@ def load_model(task: str, checkpoint_path: str, device: str) -> RepCheck:
     config_name = TASK_TO_CONFIG[task]
     with hydra.initialize_config_dir(config_dir=str(CONFIG_DIR), version_base=None):
         cfg = hydra.compose(config_name=config_name)
+    if task in TASK_TEMPORAL_KERNEL:
+        cfg.model.cls_model.temporal_kernel_size = TASK_TEMPORAL_KERNEL[task]
     model = hydra.utils.instantiate(cfg.model)
     model.to(device)
     # Checkpoint produced by CheckpointManager contains model + normalizer
@@ -206,7 +213,8 @@ def main():
     st.session_state.setdefault("video_message", None)
     st.session_state.setdefault("prev_input_mode", None)
 
-    task = st.radio("Choose task", options=["squat", "push_up"], index=0, horizontal=True)
+    task_label = st.radio("Choose task", options=list(DISPLAY_TASKS.keys()), index=0, horizontal=True)
+    task = DISPLAY_TASKS[task_label]
     labels = TASK_LABELS[task]
 
     default_ckpt = DEFAULT_CHECKPOINTS.get(task)
