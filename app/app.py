@@ -2,29 +2,73 @@ import tempfile
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+import av
 import cv2
+import hydra
 import numpy as np
+import os
 import streamlit as st
 import torch
+from torch.serialization import add_safe_globals
+from streamlit_webrtc import (
+    RTCConfiguration,
+    VideoProcessorBase,
+    WebRtcMode,
+    webrtc_streamer,
+)
 
-from rep_check.models.gcn import STGCN
+from rep_check.utils.normalizer import Normalizer
 from rep_check.models.rep_check import RepCheck
-from rep_check.utils.graph import MediaPipeGraph
 
 
-SEQ_LEN = 150
-CLASS_LABELS: Dict[int, str] = {
-    0: "Clean rep",
-    1: "Knee valgus",
-    2: "Insufficient depth",
-    3: "Forward lean / lumbar rounding / heel lift",
+CONFIG_DIR = (Path(__file__).parent.parent / "rep_check" / "configs").resolve()
+DEFAULT_CHECKPOINTS = {
+    "squat": Path(__file__).parent.parent / "checkpoints" / "squat.pth",
+    "push_up": Path(__file__).parent.parent / "checkpoints" / "push_up.pth",
 }
+MAX_WEBRTC_FRAMES = 300  # cap to avoid memory blowup (~10s at 30fps)
+RTC_CONFIG = RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]})
 
-CLASS_CUES: Dict[int, str] = {
-    0: "Nice! Keep knees tracking over toes, brace the core, and continue to drive evenly through mid-foot.",
-    1: "Push knees over the toes and screw feet into the floor to avoid them caving in (valgus).",
-    2: "Sit hips lower until the hip crease drops below the knee while keeping tension in the brace.",
-    3: "Keep the chest proud, brace the core, and keep heels down as you drive up to avoid tipping forward or rounding.",
+# Reduce Mediapipe/TF/absl logging noise in the Streamlit console
+os.environ.setdefault("GLOG_minloglevel", "2")  # suppress info/warnings
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+try:
+    from absl import logging as absl_logging
+
+    absl_logging.set_verbosity(absl_logging.ERROR)
+except Exception:
+    pass
+
+
+class FrameCollector(VideoProcessorBase):
+    """Collect frames from the browser webcam via WebRTC."""
+
+    def __init__(self):
+        self.frames: List[np.ndarray] = []
+
+    def recv(self, frame):  # type: ignore[override]
+        img = frame.to_ndarray(format="rgb24")
+        self.frames.append(img)
+        if len(self.frames) > MAX_WEBRTC_FRAMES:
+            self.frames.pop(0)
+        return frame
+TASK_TO_CONFIG = {
+    "squat": "train_rep_check_squat.yaml",
+    "push_up": "train_rep_check_push_up.yaml",
+}
+TASK_LABELS: Dict[str, Dict[int, str]] = {
+    "squat": {0: "Correct rep", 1: "Needs work"},
+    "push_up": {0: "Correct rep", 1: "Needs work"},
+}
+TASK_CUES: Dict[str, Dict[int, str]] = {
+    "squat": {
+        0: "Solid squat - hips stay balanced over mid-foot. Keep braced and stay consistent.",
+        1: "Watch knees and depth: push them out over toes, keep heels down, and brace to avoid collapsing forward.",
+    },
+    "push_up": {
+        0: "Smooth push-up - keep glutes tight and finish with elbows locked out.",
+        1: "Keep a straight line from head to heels, elbows at ~45 deg, and avoid sagging hips.",
+    },
 }
 
 
@@ -33,36 +77,28 @@ def _default_device() -> str:
 
 
 @st.cache_resource(show_spinner=False)
-def load_model(checkpoint_path: str, device: str) -> RepCheck:
-    graph = MediaPipeGraph(num_node=23, max_hop=1, dilation=1, strategy="spatial")
-    cls_model = STGCN(
-        in_channels=4,
-        num_classes=len(CLASS_LABELS),
-        graph=graph,
-        temporal_kernel_size=9,
-        edge_weights=True,
-        dropout=0.5,
-    )
-    model = RepCheck(cls_model=cls_model, seq_len=SEQ_LEN)
-    state = torch.load(checkpoint_path, map_location=device)
-    state_dict = state.get("model", state)
-    model.load_state_dict(state_dict)
+def load_model(task: str, checkpoint_path: str, device: str) -> RepCheck:
+    config_name = TASK_TO_CONFIG[task]
+    with hydra.initialize_config_dir(config_dir=str(CONFIG_DIR), version_base=None):
+        cfg = hydra.compose(config_name=config_name)
+    model = hydra.utils.instantiate(cfg.model)
     model.to(device)
+    # Checkpoint produced by CheckpointManager contains model + normalizer
+    add_safe_globals([Normalizer])
+    state = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    model.load_state_dict(state)
     model.eval()
     return model
 
 
-def read_video(path: Path, target_size: Tuple[int, int] = (640, 360)) -> np.ndarray:
-    cap = cv2.VideoCapture(str(path))
+def read_video(path: Path, target_size: Tuple[int, int] = (320, 320)) -> np.ndarray:
+    container = av.open(str(path))
     frames: List[np.ndarray] = []
-    while True:
-        success, frame = cap.read()
-        if not success:
-            break
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        frame = cv2.resize(frame, target_size)
-        frames.append(frame)
-    cap.release()
+    for frame in container.decode(video=0):
+        img = frame.to_ndarray(format="rgb24")
+        if target_size is not None:
+            img = cv2.resize(img, target_size)
+        frames.append(img)
     if not frames:
         raise ValueError("No frames found. Please upload a valid video.")
     return np.stack(frames)
@@ -83,11 +119,18 @@ def record_from_webcam(duration_sec: int = 5, fps: int = 24) -> np.ndarray:
     cap.release()
     if not frames:
         raise ValueError("No frames captured from the webcam.")
-    height, width, _ = frames[0].shape
-    resized_frames = [
-        cv2.resize(frame, (width, height)) for frame in frames
-    ]
+    resized_frames = [cv2.resize(frame, (320, 320)) for frame in frames]
     return np.stack(resized_frames)
+
+
+def webcam_frame_collector(frame):
+    """Collect frames from the browser webcam via WebRTC."""
+    img = frame.to_ndarray(format="rgb24")
+    frames = st.session_state.setdefault("webcam_frames", [])
+    frames.append(img)
+    if len(frames) > MAX_WEBRTC_FRAMES:
+        frames.pop(0)
+    return frame
 
 
 def save_video(frames: np.ndarray, fps: int = 24) -> str:
@@ -106,24 +149,49 @@ def run_prediction(model: RepCheck, frames: np.ndarray, device: str) -> int:
     return model.predict(frames, device=torch.device(device))
 
 
-def describe_class(pred_idx: int) -> str:
-    label = CLASS_LABELS.get(pred_idx, f"Class {pred_idx}")
-    cue = CLASS_CUES.get(pred_idx, "Keep working on consistent technique rep to rep.")
+def set_captured_video(frames: np.ndarray, fps: int = 24, preview_path: str | None = None) -> None:
+    """Persist frames for inference and a preview path for playback."""
+    st.session_state["video_frames"] = frames
+    # Use provided preview (e.g., original upload) else save a temp mp4 of the processed frames
+    if preview_path is None:
+        preview_path = save_video(frames, fps=fps)
+    st.session_state["video_preview_path"] = preview_path
+    st.session_state["video_message"] = f"Captured {frames.shape[0]} frames"
+
+
+def describe_class(task: str, pred_idx: int) -> str:
+    labels = TASK_LABELS[task]
+    cues = TASK_CUES[task]
+    label = labels.get(pred_idx, f"Class {pred_idx}")
+    cue = cues.get(pred_idx, "Keep working on consistent technique rep to rep.")
     return f"{label}: {cue}"
 
 
 def main():
     st.set_page_config(page_title="RepCheck - Squat Coach", layout="wide")
-    st.title("RepCheck: AI Squat Form Coach")
+    st.title("RepCheck: AI Rep Coach")
     st.write(
-        "Upload a squat video or record with your camera to get instant feedback. "
+        "Upload a video or record with your camera to get instant feedback. "
         "The model tracks your pose, classifies the rep, and surfaces an actionable cue for the next rep."
     )
+
+    # Initialize session storage for captured media
+    st.session_state.setdefault("video_frames", None)
+    st.session_state.setdefault("video_preview_path", None)
+    st.session_state.setdefault("video_message", None)
+
+    task = st.radio("Choose task", options=["squat", "push_up"], index=0, horizontal=True)
+    labels = TASK_LABELS[task]
+
+    default_ckpt = DEFAULT_CHECKPOINTS.get(task)
+    default_ckpt_str = str(default_ckpt) if default_ckpt and default_ckpt.exists() else ""
 
     with st.sidebar:
         st.header("Session Settings")
         checkpoint_path = st.text_input(
             "Checkpoint path",
+            value=default_ckpt_str,
+            key=f"ckpt_{task}",
             help="Path to the trained RepCheck checkpoint (.pth).",
         )
         device = st.selectbox("Device", options=["auto", "cpu", "cuda"], index=0)
@@ -131,70 +199,90 @@ def main():
             device = _default_device()
         st.caption(f"Using device: **{device}**")
         st.markdown(
-            "Classes:\n"
-            f"- 0: {CLASS_LABELS[0]}\n"
-            f"- 1: {CLASS_LABELS[1]}\n"
-            f"- 2: {CLASS_LABELS[2]}\n"
-            f"- 3: {CLASS_LABELS[3]}"
+            "Classes:\n" + "\n".join([f"- {idx}: {name}" for idx, name in labels.items()])
         )
 
     input_mode = st.radio(
         "Choose input",
-        options=["Upload video", "Use webcam (5s capture)"],
-        help="Upload a clip or let RepCheck capture 5 seconds from your camera.",
+        options=["Upload video", "Use webcam"],
+        help="Upload a clip or record via the browser camera.",
     )
 
     video_frames: np.ndarray | None = None
     video_preview_path: str | None = None
 
     if input_mode == "Upload video":
-        uploaded = st.file_uploader("Upload a squat video", type=["mp4", "mov", "avi"])
+        uploaded = st.file_uploader("Upload a video", type=["mp4", "mov", "avi"])
         if uploaded:
             with tempfile.NamedTemporaryFile(delete=False, suffix=uploaded.name) as tmp:
                 tmp.write(uploaded.read())
                 tmp_path = Path(tmp.name)
             try:
-                video_frames = read_video(tmp_path)
-                video_preview_path = str(tmp_path)
-                st.success(f"Loaded {video_frames.shape[0]} frames from {uploaded.name}")
+                frames = read_video(tmp_path)
+                set_captured_video(frames, preview_path=str(tmp_path))
+                st.success(f"Loaded {frames.shape[0]} frames from {uploaded.name}")
             except Exception as exc:  # noqa: BLE001
                 st.error(f"Could not read video: {exc}")
-    else:
-        st.info("Click the button to capture a 5-second clip from your camera.")
-        duration = st.slider("Capture duration (seconds)", min_value=3, max_value=10, value=5, step=1)
-        fps = st.slider("Capture FPS", min_value=15, max_value=30, value=24, step=1)
-        if st.button("Record"):
-            try:
-                with st.spinner("Recording from webcam..."):
-                    video_frames = record_from_webcam(duration_sec=duration, fps=fps)
-                video_preview_path = save_video(video_frames, fps=fps)
-                st.success(f"Captured {video_frames.shape[0]} frames from webcam.")
-            except Exception as exc:  # noqa: BLE001
-                st.error(f"Webcam capture failed: {exc}")
+    elif input_mode == "Use webcam":
+        st.info("Start the camera, perform the movement, then click 'Use captured clip'.")
+        ctx = webrtc_streamer(
+            key="repcheck-webrtc",
+            mode=WebRtcMode.SENDRECV,
+            media_stream_constraints={"video": True, "audio": False},
+            video_processor_factory=FrameCollector,
+            rtc_configuration=RTC_CONFIG,
+        )
 
-    if video_preview_path:
-        st.video(video_preview_path)
+        frames = []
+        if ctx and ctx.video_processor:
+            frames = ctx.video_processor.frames
 
-    if st.button("Run RepCheck", disabled=video_frames is None or not checkpoint_path):
+        st.caption(f"Frames buffered: {len(frames)} (buffer ~10s).")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Use captured clip"):
+                if not frames:
+                    st.warning("No frames captured yet.")
+                else:
+                    video_frames = np.stack(frames)
+                    set_captured_video(video_frames)
+                    st.success(st.session_state["video_message"])
+        with col2:
+            if st.button("Clear buffer") and ctx and ctx.video_processor:
+                ctx.video_processor.frames = []
+                st.info("Cleared captured frames.")
+
+    if st.session_state.get("video_preview_path"):
+        preview_path = Path(st.session_state["video_preview_path"])
+        if preview_path.exists():
+            st.video(str(preview_path))
+        else:
+            st.warning("Preview not available (file missing). Try capturing again.")
+        if st.session_state.get("video_message"):
+            st.caption(st.session_state["video_message"])
+
+    stored_frames = st.session_state.get("video_frames")
+
+    if st.button("Run RepCheck", disabled=stored_frames is None or not checkpoint_path):
         if not checkpoint_path:
             st.warning("Please provide a checkpoint path.")
             return
-        if video_frames is None:
+        if stored_frames is None:
             st.warning("Please upload or record a video first.")
             return
         try:
             with st.spinner("Loading model..."):
-                model = load_model(checkpoint_path, device)
-            with st.spinner("Analyzing your squat..."):
-                pred_idx = run_prediction(model, video_frames, device)
+                model = load_model(task, checkpoint_path, device)
+            with st.spinner("Analyzing your movement..."):
+                pred_idx = run_prediction(model, stored_frames, device)
             st.subheader("Result")
-            st.success(describe_class(pred_idx))
+            st.success(describe_class(task, pred_idx))
         except Exception as exc:  # noqa: BLE001
             st.error(f"Could not run inference: {exc}")
 
     st.divider()
     st.caption(
-        "Tips: aim for a clear side/45° angle, ensure the full body stays in frame, "
+        "Tips: aim for a clear side/45 deg angle, ensure the full body stays in frame, "
         "and keep lighting consistent for best pose tracking."
     )
 

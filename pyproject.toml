@@ -22,6 +22,7 @@ dependencies = [
   "omegaconf",
   "tqdm",
   "streamlit",
+  "streamlit-webrtc",
 ]
 
 [tool.setuptools]
