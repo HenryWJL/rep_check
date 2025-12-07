@@ -156,6 +156,10 @@ def set_captured_video(frames: np.ndarray, fps: int = 24, preview_path: str | No
     if preview_path is None:
         preview_path = save_video(frames, fps=fps)
     st.session_state["video_preview_path"] = preview_path
+    try:
+        st.session_state["video_preview_bytes"] = Path(preview_path).read_bytes()
+    except Exception:
+        st.session_state["video_preview_bytes"] = None
     st.session_state["video_message"] = f"Captured {frames.shape[0]} frames"
 
 
@@ -208,9 +212,6 @@ def main():
         help="Upload a clip or record via the browser camera.",
     )
 
-    video_frames: np.ndarray | None = None
-    video_preview_path: str | None = None
-
     if input_mode == "Upload video":
         uploaded = st.file_uploader("Upload a video", type=["mp4", "mov", "avi"])
         if uploaded:
@@ -244,17 +245,24 @@ def main():
                 if not frames:
                     st.warning("No frames captured yet.")
                 else:
-                    video_frames = np.stack(frames)
-                    set_captured_video(video_frames)
-                    st.success(st.session_state["video_message"])
+                    frame_list = [f for f in frames if isinstance(f, np.ndarray)]
+                    if not frame_list:
+                        st.warning("No valid frames captured yet.")
+                    else:
+                        video_frames = np.ascontiguousarray(np.stack(frame_list).astype(np.uint8))
+                        set_captured_video(video_frames)
+                        st.success(st.session_state["video_message"])
         with col2:
             if st.button("Clear buffer") and ctx and ctx.video_processor:
                 ctx.video_processor.frames = []
                 st.info("Cleared captured frames.")
 
-    if st.session_state.get("video_preview_path"):
-        preview_path = Path(st.session_state["video_preview_path"])
-        if preview_path.exists():
+    if st.session_state.get("video_preview_path") or st.session_state.get("video_preview_bytes"):
+        preview_path = st.session_state.get("video_preview_path")
+        preview_bytes = st.session_state.get("video_preview_bytes")
+        if preview_bytes:
+            st.video(preview_bytes, format="video/mp4")
+        elif preview_path and Path(preview_path).exists():
             st.video(str(preview_path))
         else:
             st.warning("Preview not available (file missing). Try capturing again.")
@@ -262,6 +270,8 @@ def main():
             st.caption(st.session_state["video_message"])
 
     stored_frames = st.session_state.get("video_frames")
+    if stored_frames is not None and not isinstance(stored_frames, np.ndarray):
+        stored_frames = np.asarray(stored_frames)
 
     if st.button("Run RepCheck", disabled=stored_frames is None or not checkpoint_path):
         if not checkpoint_path:
