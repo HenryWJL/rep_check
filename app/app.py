@@ -182,7 +182,9 @@ def main():
     # Initialize session storage for captured media
     st.session_state.setdefault("video_frames", None)
     st.session_state.setdefault("video_preview_path", None)
+    st.session_state.setdefault("video_preview_bytes", None)
     st.session_state.setdefault("video_message", None)
+    st.session_state.setdefault("prev_input_mode", None)
 
     task = st.radio("Choose task", options=["squat", "push_up"], index=0, horizontal=True)
     labels = TASK_LABELS[task]
@@ -211,6 +213,15 @@ def main():
         options=["Upload video", "Use webcam"],
         help="Upload a clip or record via the browser camera.",
     )
+
+    # Reset stored media when switching between input modes
+    if st.session_state.get("prev_input_mode") != input_mode:
+        st.session_state["video_frames"] = None
+        st.session_state["video_preview_path"] = None
+        st.session_state["video_preview_bytes"] = None
+        st.session_state["video_message"] = None
+        st.session_state["webcam_frames"] = []
+        st.session_state["prev_input_mode"] = input_mode
 
     if input_mode == "Upload video":
         uploaded = st.file_uploader("Upload a video", type=["mp4", "mov", "avi"])
