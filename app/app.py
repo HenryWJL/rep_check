@@ -26,6 +26,7 @@ DEFAULT_CHECKPOINTS = {
     "squat": Path(__file__).parent.parent / "checkpoints" / "squat.pth",
     "push_up": Path(__file__).parent.parent / "checkpoints" / "push_up.pth",
 }
+SEQ_LEN = {"squat": 200, "push_up": 200}
 MAX_WEBRTC_FRAMES = 300  # cap to avoid memory blowup (~10s at 30fps)
 RTC_CONFIG = RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]})
 
@@ -145,21 +146,40 @@ def save_video(frames: np.ndarray, fps: int = 24) -> str:
     return tmp_file.name
 
 
+def standardize_frames(frames: List[np.ndarray], target_size: Tuple[int, int] | None = None) -> np.ndarray:
+    if not frames:
+        raise ValueError("No frames to standardize")
+    if target_size is None:
+        h, w = frames[0].shape[:2]
+    else:
+        w, h = target_size
+    resized = [cv2.resize(f, (w, h)) for f in frames]
+    return np.ascontiguousarray(np.stack(resized).astype(np.uint8))
+
+
+def trim_frames(frames: np.ndarray, target_len: int) -> np.ndarray:
+    """Trim frames to at most target_len by uniform sampling."""
+    t = frames.shape[0]
+    if t <= target_len:
+        return frames
+    indices = np.linspace(0, t - 1, target_len).astype(int)
+    return frames[indices]
+
+
 def run_prediction(model: RepCheck, frames: np.ndarray, device: str) -> int:
     return model.predict(frames, device=torch.device(device))
 
 
-def set_captured_video(frames: np.ndarray, fps: int = 24, preview_path: str | None = None) -> None:
+def set_captured_video(frames: np.ndarray, fps: int = 24, preview_path: str | None = None, target_len: int | None = None) -> None:
     """Persist frames for inference and a preview path for playback."""
+    if target_len is not None:
+        frames = trim_frames(frames, target_len)
     st.session_state["video_frames"] = frames
     # Use provided preview (e.g., original upload) else save a temp mp4 of the processed frames
     if preview_path is None:
         preview_path = save_video(frames, fps=fps)
     st.session_state["video_preview_path"] = preview_path
-    try:
-        st.session_state["video_preview_bytes"] = Path(preview_path).read_bytes()
-    except Exception:
-        st.session_state["video_preview_bytes"] = None
+    st.session_state["video_preview_bytes"] = None
     st.session_state["video_message"] = f"Captured {frames.shape[0]} frames"
 
 
@@ -231,7 +251,7 @@ def main():
                 tmp_path = Path(tmp.name)
             try:
                 frames = read_video(tmp_path)
-                set_captured_video(frames, preview_path=str(tmp_path))
+                set_captured_video(frames, preview_path=str(tmp_path), target_len=SEQ_LEN[task])
                 st.success(f"Loaded {frames.shape[0]} frames from {uploaded.name}")
             except Exception as exc:  # noqa: BLE001
                 st.error(f"Could not read video: {exc}")
@@ -245,9 +265,9 @@ def main():
             rtc_configuration=RTC_CONFIG,
         )
 
-        frames = []
+        frames: List[np.ndarray] = []
         if ctx and ctx.video_processor:
-            frames = ctx.video_processor.frames
+            frames = [f for f in ctx.video_processor.frames if isinstance(f, np.ndarray)]
 
         st.caption(f"Frames buffered: {len(frames)} (buffer ~10s).")
         col1, col2 = st.columns(2)
@@ -260,21 +280,19 @@ def main():
                     if not frame_list:
                         st.warning("No valid frames captured yet.")
                     else:
-                        video_frames = np.ascontiguousarray(np.stack(frame_list).astype(np.uint8))
-                        set_captured_video(video_frames)
+                        video_frames = standardize_frames(frame_list)
+                        set_captured_video(video_frames, target_len=SEQ_LEN[task])
                         st.success(st.session_state["video_message"])
         with col2:
             if st.button("Clear buffer") and ctx and ctx.video_processor:
                 ctx.video_processor.frames = []
                 st.info("Cleared captured frames.")
 
-    if st.session_state.get("video_preview_path") or st.session_state.get("video_preview_bytes"):
-        preview_path = st.session_state.get("video_preview_path")
-        preview_bytes = st.session_state.get("video_preview_bytes")
-        if preview_bytes:
-            st.video(preview_bytes, format="video/mp4")
-        elif preview_path and Path(preview_path).exists():
-            st.video(str(preview_path))
+    preview_path = st.session_state.get("video_preview_path")
+    if input_mode == "Upload video" and preview_path:
+        preview = Path(preview_path)
+        if preview.exists():
+            st.video(str(preview))
         else:
             st.warning("Preview not available (file missing). Try capturing again.")
         if st.session_state.get("video_message"):
